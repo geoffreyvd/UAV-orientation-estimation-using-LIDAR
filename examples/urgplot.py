@@ -22,9 +22,10 @@ along with this code.  If not, see <http://www.gnu.org/licenses/>.
 URG_DEVICE                  = '/dev/ttyACM0'
 
 # Arbitrary display params
-DISPLAY_CANVAS_SIZE_PIXELS  = 500
+DISPLAY_CANVAS_SIZE_PIXELS  = 980
 DISPLAY_CANVAS_COLOR        = 'black'
 DISPLAY_SCAN_LINE_COLOR     = 'yellow'
+DISPLAY_SCAN_LINE_COLOR_LARGEST_DISTANCE     = 'red'
 
 # URG-04LX specs
 URG_MAX_SCAN_DIST_MM        = 4000
@@ -33,7 +34,7 @@ URG_SCAN_SIZE               = 682
 
 from breezylidar import URG04LX
 
-from math import sin, cos, radians
+from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
 from sys import exit, version
 
@@ -99,12 +100,14 @@ class URGPlotter(tk.Frame):
         
         # No scan data to start
         self.scandata = []
-        
+
         # Pre-compute some values useful for plotting
         
         scan_angle_rad = [radians(-URG_DETECTION_DEG/2 + (float(k)/URG_SCAN_SIZE) * \
                                    URG_DETECTION_DEG) for k in range(URG_SCAN_SIZE)]
-                                   
+        self.scanAngles = [scan_angle_rad[k]*180/pi for k in range(URG_SCAN_SIZE)]
+        self.indexLargestDistance = 0
+
         self.half_canvas_pix = DISPLAY_CANVAS_SIZE_PIXELS / 2
         scale = self.half_canvas_pix / float(URG_MAX_SCAN_DIST_MM)
 
@@ -121,6 +124,8 @@ class URGPlotter(tk.Frame):
                          
         [self.canvas.itemconfig(line, fill=DISPLAY_SCAN_LINE_COLOR) for line in self.lines]
         
+        # create red lines here for indicating corner points.
+
         # Start a new thread and set a flag to let it know when we stop running
         thread.start_new_thread( grab_scan, (self,) )       
         self.running = True      
@@ -168,7 +173,8 @@ class URGPlotter(tk.Frame):
             self._quit()
 
     def _task(self):
-        
+        # The only thing here that has to happen is setting the lengh of the line, by setting a new endpoint for the line 
+        # x = cos * scanPointDistance, y = sin * scanPointDistance
         # Modify the displayed lines according to the current scan
         [self.canvas.coords(self.lines[k], 
                             self.half_canvas_pix, \
@@ -176,12 +182,85 @@ class URGPlotter(tk.Frame):
                             self.half_canvas_pix + self.sin[k] * self.scandata[k],\
                             self.half_canvas_pix + self.cos[k] * self.scandata[k]) \
          for k in range(len(self.scandata))]    
-                    
+        if self.scandata:
+            i = 0
+            firstValidPoint = -1
+            while i == 0:
+                firstValidPoint += 1
+                i = self.scandata[firstValidPoint]
+            
+            i = 0
+            lastValidPoint = 681
+            while i == 0:
+                lastValidPoint -= 1
+                i = self.scandata[lastValidPoint]
+
+            self.extractLines(self.scandata, firstValidPoint, lastValidPoint)
+            sleep(20) #test purpose
+
         # Reschedule this task immediately
         self.after(1, self._task)
         
         # Record another display for reporting performance
         self.showcount += 1
+
+    def extractLines(self, scandata, first, last):
+        # lets calculate the corner points
+        #split and merge
+        firstPointX = scandata[first] * self.cos[first]
+        firstPointY = scandata[first] * self.sin[first]
+
+        lastPointX = scandata[last] * self.cos[last]
+        lastPointY = scandata[last] * self.sin[last]
+
+        diffX = lastPointX - firstPointX
+        diffY = lastPointY - firstPointY
+        
+        if diffX != 0:
+            #step 1 see papier for uitwerking - calculate slope
+            slope = (lastPointY - firstPointY) / (lastPointX - firstPointX)
+            #step 3 calculate perpendicular distance from origon to line
+            perpendicularDistance = fabs(firstPointY-slope*firstPointX)/sqrt(slope*slope+1)
+        else:
+            #als de slope infinite is (de twee punt coordinaten staan op dezelfde x waarde)
+            perpendicularDistance = lastPointX
+
+        #step 2 - calculate perpendicular angle from origon to line
+        #possible optimization, dont convert to angles, keep using radius
+        perpendicularAngle = atan2(diffY, diffX) * 180/pi
+
+        print("first index: {}".format(first))
+        print("last index: {}".format(last))
+        print("first distance: {}".format(scandata[first]))
+        print("last distance: {}".format(scandata[last]))
+        print("first scan angle: {}".format(self.scanAngles[first]))
+        print("last scan angle: {}".format(self.scanAngles[last]))
+        print("perpendicularAngle: {}".format(perpendicularAngle))
+        print("perpendicularDistance: {}".format(perpendicularDistance))
+    
+        largestDistance = 0
+        indexLargestDistance = 0
+        for i in range(first, last):
+            # math step 4 on paper, calculate distance from each point to perpendicular line
+            distance = fabs(scandata[i] * cos(perpendicularAngle - self.scanAngles[i]) - perpendicularDistance)
+            if distance > largestDistance:
+                indexLargestDistance = i
+                largestDistance = distance
+        #threshhold for (in mm)
+        if largestDistance > 100:
+            print("largestDistance: {}".format(largestDistance))
+            print("indexLargestDistance: {}".format(indexLargestDistance))
+            [self.canvas.itemconfig(self.lines[indexLargestDistance], fill=DISPLAY_SCAN_LINE_COLOR_LARGEST_DISTANCE)]
+            self.update()
+            sleep(10)
+            self.extractLines(scandata, first, indexLargestDistance)
+            self.extractLines(scandata, indexLargestDistance, last)
+                
+        #lets visualize the corner lines
+        # [self.canvas.itemconfig(self.lines[self.indexLargestDistance], fill=DISPLAY_SCAN_LINE_COLOR)]
+        self.indexLargestDistance = indexLargestDistance
+
+        #TODO 
         
         
 # Instantiate and pop up the window
