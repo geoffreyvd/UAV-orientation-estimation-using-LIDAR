@@ -26,6 +26,8 @@ DISPLAY_CANVAS_SIZE_PIXELS  = 980
 DISPLAY_CANVAS_COLOR        = 'black'
 DISPLAY_SCAN_LINE_COLOR     = 'yellow'
 DISPLAY_SCAN_LINE_COLOR_LARGEST_DISTANCE     = 'red'
+DISPLAY_SCAN_LINE_COLOR_LINES     = 'blue'
+DISPLAY_SCAN_LINE_COLOR_WALLS     = 'green'
 
 # URG-04LX specs
 URG_MAX_SCAN_DIST_MM        = 4000
@@ -102,17 +104,23 @@ class URGPlotter(tk.Frame):
         self.scandata = []
 
         # Pre-compute some values useful for plotting
+        #-2*pi/3 +
         
         scan_angle_rad = [radians(-URG_DETECTION_DEG/2 + (float(k)/URG_SCAN_SIZE) * \
                                    URG_DETECTION_DEG) for k in range(URG_SCAN_SIZE)]
         self.scanAngles = [scan_angle_rad[k]*180/pi for k in range(URG_SCAN_SIZE)]
         self.indexLargestDistance = 0
+        self.extractLinesCount = 0
+        self.wallCount = 0
 
         self.half_canvas_pix = DISPLAY_CANVAS_SIZE_PIXELS / 2
-        scale = self.half_canvas_pix / float(URG_MAX_SCAN_DIST_MM)
+        self.renderScale = self.half_canvas_pix / float(URG_MAX_SCAN_DIST_MM)
 
-        self.cos = [-cos(angle) * scale for angle in scan_angle_rad]
-        self.sin = [ sin(angle) * scale for angle in scan_angle_rad]
+
+        print("origin x and y: {}, renderScale: {}".format(self.half_canvas_pix, self.renderScale))
+
+        self.cos = [-cos(angle) * self.renderScale for angle in scan_angle_rad]
+        self.sin = [ sin(angle) * self.renderScale for angle in scan_angle_rad]
         
         # Add scan lines to canvas, to be modified later        
         self.lines = [self.canvas.create_line(\
@@ -120,6 +128,18 @@ class URGPlotter(tk.Frame):
                          self.half_canvas_pix, \
                          self.half_canvas_pix + self.sin[k] * URG_MAX_SCAN_DIST_MM,\
                          self.half_canvas_pix + self.cos[k] * URG_MAX_SCAN_DIST_MM)
+                         for k in range(URG_SCAN_SIZE)]
+        self.linesExtracted = [self.canvas.create_line(\
+                         0, \
+                         0, \
+                         self.sin[k] * 10,\
+                         self.cos[k] * 10)
+                         for k in range(URG_SCAN_SIZE)]
+        self.wallsExtracted = [self.canvas.create_line(\
+                         0, \
+                         0, \
+                         self.sin[k] * 10,\
+                         self.cos[k] * 10)
                          for k in range(URG_SCAN_SIZE)]
                          
         [self.canvas.itemconfig(line, fill=DISPLAY_SCAN_LINE_COLOR) for line in self.lines]
@@ -207,49 +227,108 @@ class URGPlotter(tk.Frame):
     def extractLines(self, scandata, first, last):
         # lets calculate the corner points
         #split and merge
-        firstPointX = scandata[first] * self.cos[first]
-        firstPointY = scandata[first] * self.sin[first]
-
-        lastPointX = scandata[last] * self.cos[last]
-        lastPointY = scandata[last] * self.sin[last]
-
-        diffX = lastPointX - firstPointX
-        diffY = lastPointY - firstPointY
+        # mogelijk TODO cos en sin hier omdraaien (doen ze boven ook), wellicht omdat de assen coutner clockwise zijn, ipv clockwise 
+        firstPointXRaw = scandata[first] * self.sin[first]
+        firstPointYRaw = scandata[first] * self.cos[first]
+        firstPointX = self.half_canvas_pix + firstPointXRaw
+        firstPointY = self.half_canvas_pix + firstPointYRaw
         
+        lastPointXRaw = scandata[last] * self.sin[last]
+        lastPointYRaw = scandata[last] * self.cos[last]
+        lastPointX = self.half_canvas_pix + lastPointXRaw
+        lastPointY = self.half_canvas_pix + lastPointYRaw
+
+        diffX = lastPointXRaw - firstPointXRaw
+        diffY = lastPointYRaw - firstPointYRaw
+        self.extractLinesCount+=1
+        [self.canvas.coords(self.linesExtracted[self.extractLinesCount], 
+                        firstPointX, \
+                        firstPointY, \
+                        lastPointX,\
+                        lastPointY)]    
+        [self.canvas.itemconfig(self.linesExtracted[self.extractLinesCount], fill=DISPLAY_SCAN_LINE_COLOR_LINES)]
+
+        slope = 0
         if diffX != 0:
             #step 1 see papier for uitwerking - calculate slope
-            slope = (lastPointY - firstPointY) / (lastPointX - firstPointX)
+            slope = diffY / diffX
+            #step 2 - calculate perpendicular angle from origon to line
+            #possible optimization, dont convert to angles, keep using radius
+            # perpendicularRadius = atan2(diffY, diffX)
+            # perpendicularAngle = perpendicularRadius * 180/pi
+            x1 = sin(self.scanAngles[first]*pi/180) * scandata[first]
+            y1 = cos(self.scanAngles[first]*pi/180) * scandata[first]
+            x2 = sin(self.scanAngles[last]*pi/180) * scandata[last]
+            y2 = cos(self.scanAngles[last]*pi/180) * scandata[last]
+            print("1 x: {}, y: {}".format(x1, y1))
+            print("2 x: {}, y: {}".format(x2, y2))
+            # perpendicularRadius = -atan2(y2-y1, x2-x1)
+            slope = (y2 - y1) / (x2 - x1)
+            perpendicularRadius = -atan(slope)
+            perpendicularAngle = perpendicularRadius * 180/pi
+            # if perpendicularAngle < 0:
+            #     perpendicularAngle = -180-perpendicularAngle
+            #     perpendicularRadius = perpendicularAngle*pi/180
             #step 3 calculate perpendicular distance from origon to line
-            perpendicularDistance = fabs(firstPointY-slope*firstPointX)/sqrt(slope*slope+1)
-        else:
+            perpendicularDistance = (y1-slope*x1)/sqrt(slope*slope+1) * self.renderScale
+            
+        elif diffY > 0:
             #als de slope infinite is (de twee punt coordinaten staan op dezelfde x waarde)
-            perpendicularDistance = lastPointX
+            perpendicularDistance = lastPointXRaw
+            perpendicularRadius = 1,57
+            perpendicularAngle = 90 #0
+        else:
+            perpendicularDistance = lastPointXRaw
+            perpendicularRadius = 1,57
+            perpendicularAngle = 270
 
-        #step 2 - calculate perpendicular angle from origon to line
-        #possible optimization, dont convert to angles, keep using radius
-        perpendicularAngle = atan2(diffY, diffX) * 180/pi
+        #TODO check perpendicular distance calc
+        # print("1 x: {}, y: {}".format(firstPointXRaw, firstPointYRaw))
+        # print("2 x: {}, y: {}".format(lastPointXRaw, lastPointYRaw))
+        print("1index: {}, distance: {}, angle: {}".format(first, scandata[first], self.scanAngles[first]))
+        print("2index: {}, distance: {}, angle: {}".format(last, scandata[last], self.scanAngles[last]))
+        print("perpendicular Angle: {}, Distance: {}".format(perpendicularAngle, perpendicularDistance))
 
-        print("first index: {}".format(first))
-        print("last index: {}".format(last))
-        print("first distance: {}".format(scandata[first]))
-        print("last distance: {}".format(scandata[last]))
-        print("first scan angle: {}".format(self.scanAngles[first]))
-        print("last scan angle: {}".format(self.scanAngles[last]))
-        print("perpendicularAngle: {}".format(perpendicularAngle))
-        print("perpendicularDistance: {}".format(perpendicularDistance))
+        #test purpose draw perpendicular line
+        lineEndX = self.half_canvas_pix+ perpendicularDistance * sin(perpendicularRadius)
+        lineEndY = self.half_canvas_pix+ perpendicularDistance * -cos(perpendicularRadius)
+
+        lineBeginX = self.half_canvas_pix
+        lineBeginY = self.half_canvas_pix
+
+        # #test purpose draw line that is given by perpendicular angle and distance (walls)
+        # lineBeginX = perpendicularDistance * sin(perpendicularAngle*pi/180) * self.renderScale
+        # lineBeginY = perpendicularDistance * -cos(perpendicularAngle*pi/180) * self.renderScale
+
+        # lineEndX = lineBeginX + 1200
+        # lineEndY = lineBeginY + 1200 *slope
+
+        print("lineBegin x: {}, y: {}".format(lineBeginX, lineBeginY))
+        print("lineEnd x: {}, y: {}".format(lineEndX, lineEndY))
+        print("slope: {}".format(slope))
+
+        self.wallCount += 1
+        [self.canvas.coords(self.wallsExtracted[self.wallCount], 
+                        lineBeginX, \
+                        lineBeginY, \
+                        lineEndX,\
+                        lineEndY)]    
+        [self.canvas.itemconfig(self.wallsExtracted[self.wallCount], fill=DISPLAY_SCAN_LINE_COLOR_WALLS)]
     
         largestDistance = 0
         indexLargestDistance = 0
-        for i in range(first, last):
-            # math step 4 on paper, calculate distance from each point to perpendicular line
-            distance = fabs(scandata[i] * cos(perpendicularAngle - self.scanAngles[i]) - perpendicularDistance)
-            if distance > largestDistance:
-                indexLargestDistance = i
-                largestDistance = distance
+        for i in range(first +1, last):
+            if scandata[i] != 0:
+                # math step 4 on paper, calculate distance from each point to perpendicular line
+                distance = fabs(scandata[i] * cos((perpendicularAngle - self.scanAngles[i])*pi/180) - perpendicularDistance)
+                if distance > largestDistance:
+                    indexLargestDistance = i
+                    largestDistance = distance
         #threshhold for (in mm)
         if largestDistance > 100:
-            print("largestDistance: {}".format(largestDistance))
-            print("indexLargestDistance: {}".format(indexLargestDistance))
+            print("largestDistance: {}, indexLargestDistance: {}".format(largestDistance, indexLargestDistance))
+            print("-----------------------")
+            #draw extracted lines
             [self.canvas.itemconfig(self.lines[indexLargestDistance], fill=DISPLAY_SCAN_LINE_COLOR_LARGEST_DISTANCE)]
             self.update()
             sleep(10)
