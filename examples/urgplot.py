@@ -19,6 +19,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this code.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
+#NOTE, if this programs returns breezylidar connect error, then just retry 3 times
 URG_DEVICE                  = '/dev/ttyACM0'
 
 # Arbitrary display params
@@ -35,7 +36,6 @@ URG_DETECTION_DEG           = 240
 URG_SCAN_SIZE               = 682
 
 from breezylidar import URG04LX
-
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
 from sys import exit, version
@@ -48,7 +48,7 @@ else:
     import thread
 
 # Runs on its own thread
-def grab_scan( obj):
+def grab_scan(obj):
     while True:
         scandata = obj.lidar.getScan()
         if scandata:
@@ -57,8 +57,8 @@ def grab_scan( obj):
             sleep(.01) # pause a tiny amount to allow following check to work
             if not obj.running:
                 break
-                
-                
+
+    
 class URGPlotter(tk.Frame):
     '''
     UGRPlotter extends tk.Frame to plot Lidar scans.
@@ -102,18 +102,19 @@ class URGPlotter(tk.Frame):
         
         # No scan data to start
         self.scandata = []
+        
+        self.extractedLinesCountDebug = 0
+        self.perpendicularLineCount = 0
+        self.previousWalls = None
 
         # Pre-compute some values useful for plotting        
         scan_angle_rad = [radians(-URG_DETECTION_DEG/2 + (float(k)/URG_SCAN_SIZE) * \
                                    URG_DETECTION_DEG) for k in range(URG_SCAN_SIZE)]
         self.scanRadians = scan_angle_rad
         self.scanAngles = [scan_angle_rad[k]*180/pi for k in range(URG_SCAN_SIZE)]
-        self.extractedLinesCountDebug = 0
-        self.perpendicularLineCount = 0
 
         self.half_canvas_pix = DISPLAY_CANVAS_SIZE_PIXELS / 2
         self.renderScale = self.half_canvas_pix / float(URG_MAX_SCAN_DIST_MM)
-        print("origin x and y: {}, renderScale: {}".format(self.half_canvas_pix, self.renderScale))
 
         self.cos = [-cos(angle) * self.renderScale for angle in scan_angle_rad]
         self.sin = [ sin(angle) * self.renderScale for angle in scan_angle_rad]
@@ -142,6 +143,7 @@ class URGPlotter(tk.Frame):
                          for k in range(URG_SCAN_SIZE)]
                          
         [self.canvas.itemconfig(line, fill=DISPLAY_SCAN_LINE_COLOR) for line in self.linesLidar]
+        print("origin x and y: {}, renderScale: {}".format(self.half_canvas_pix, self.renderScale))
 
         # Start a new thread and set a flag to let it know when we stop running
         thread.start_new_thread( grab_scan, (self,) )       
@@ -214,11 +216,18 @@ class URGPlotter(tk.Frame):
 
             #TODO create filter to ignore outlieers
             extractedLines = self.extractLinesFrom2dDatapoints(self.scandata, firstValidPoint, lastValidPoint)
+            #TODO merge lines
             walls = self.extractWallsFromLines(extractedLines)
             
+            if self.previousWalls is not None:
+                yaw = self.calculateYaw(self.previousWalls, walls)
+                print("yaw angle: {}".format(yaw*180/pi))
+                #TODO match corner points to previous iteration (by lookign at similar distance and angle)
+
+            self.previousWalls = walls
             self.extractedLinesCountDebug = 0
             self.update()
-            sleep(30) #test purpose
+            sleep(5) #test purpose
 
         # Reschedule this task immediately
         self.after(1, self._task)
@@ -295,25 +304,27 @@ class URGPlotter(tk.Frame):
             listOfWalls = self.extractLinesFrom2dDatapoints(scandata, first, indexLargestDistance)
             listOfWalls.extend(self.extractLinesFrom2dDatapoints(scandata, indexLargestDistance, last))
         else:
-            #(x1,y1,x2,y2,index1,index2,amountOfDataPoints)
-            listOfWalls = [(firstPointX, firstPointY, lastPointX, lastPointY, first, last, last-first-missingDataCount)]
+            #(x1,y1,x2,y2,index1,index2,amountOfDataPoints, perpendicularRadian)
+            listOfWalls = [extractedLine(firstPointX, firstPointY, lastPointX, lastPointY, x1Raw, y1Raw, x2Raw, y2Raw, first, 
+                last, last-first-missingDataCount, perpendicularRadian)]
         return listOfWalls
 
     def extractWallsFromLines(self, extractedLines):
         print("wall count: {}, ".format(len(extractedLines)))
             
         def amountOfDataPoints(elem):
-            return elem[6]
+            return elem.amountOfDataPoints
 
         extractedLines.sort(reverse=True, key=amountOfDataPoints)
-        #TODO make 2 iterations and calculate angle
         #TODO for the biggest wall, calculate the mean line from all the data points 
         #TODO best filter for wall selection: one that has the most data points, and variance is small!
         for idx, w in enumerate(extractedLines):
-            print("idx: {}, point 1 idx: {}, point 2 idx: {}".format(idx, w[4], w[5]))
-            self.canvas.coords(self.linesExtracted[idx], w[0], w[1], w[2], w[3])
+            print("idx: {}, point 1 idx: {}, point 2 idx: {}".format(idx, w.index1, w.index2))
+            self.canvas.coords(self.linesExtracted[idx], w.x1, w.y1, w.x2, w.y2)
             widthWall = 1 + 10/(idx +1)
             self.canvas.itemconfig(self.linesExtracted[idx], fill=DISPLAY_SCAN_LINE_COLOR_EXTRACTED_LINES, width=widthWall)
+        
+        return extractedLines
     
     def calculatePerpendicularLine(self, x1Raw, y1Raw, x2Raw, y2Raw):
         diffX = x2Raw - x1Raw
@@ -336,6 +347,10 @@ class URGPlotter(tk.Frame):
         # print("perpendicular Angle: {}, Distance: {}".format(perpendicularAngle, perpendicularDistance))
         # print("slope: {}".format(slope))
         return perpendicularRadian, perpendicularDistance
+    
+    def calculateYaw(self, previousWalls, walls):
+        return previousWalls[0].perpendicularRadian - walls[0].perpendicularRadian 
+
         
 # Instantiate and pop up the window
 if __name__ == '__main__':
