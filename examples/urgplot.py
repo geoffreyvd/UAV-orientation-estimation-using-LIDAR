@@ -221,21 +221,18 @@ class URGPlotter(tk.Frame):
             #TODO create filter to ignore outlieers
             walls = self.extractLines(self.scandata, firstValidPoint, lastValidPoint)
             print("wall count: {}, ".format(len(walls)))
-
-            self.extractLinesCount+=1
-            [self.canvas.coords(self.linesExtracted[k], 
-                            0, \
-                            0, \
-                            0, \
-                            0) \
-            for k in range(self.extractLinesCount)]
-            [self.canvas.coords(self.linesExtracted[idx], 
-                            w[0], \
-                            w[1], \
-                            w[2], \
-                            w[3]) \
-            for idx, w in enumerate(walls)]
             
+            def amountOfDataPoints(elem):
+                return elem[6]
+            walls.sort(reverse=True, key=amountOfDataPoints)
+
+            for idx, w in enumerate(walls):
+                self.canvas.coords(self.linesExtracted[idx], w[0], w[1], w[2], w[3])
+                print("idx: {}, point 1 idx: {}, point 2 idx: {}".format(idx, w[4], w[5]))
+                widthWall = 1 + 10/(idx +1)
+                self.canvas.itemconfig(self.linesExtracted[idx], fill=DISPLAY_SCAN_LINE_COLOR_LINES, width=widthWall)
+                
+
             self.extractLinesCount = 0
             self.update()
             sleep(30) #test purpose
@@ -319,6 +316,7 @@ class URGPlotter(tk.Frame):
     
         largestDistance = 0
         indexLargestDistance = 0
+        missingDataCount = 0
         for i in range(first +1, last):
             if scandata[i] != 0:
                 # math step 4 on paper, calculate distance from each point to perpendicular line
@@ -326,8 +324,10 @@ class URGPlotter(tk.Frame):
                 if distance > largestDistance:
                     indexLargestDistance = i
                     largestDistance = distance
+            else:
+                missingDataCount+=1
         #threshhold for (in mm)
-        if largestDistance > 80:
+        if largestDistance > 30:
             print("largestDistance: {}, indexLargestDistance: {}".format(largestDistance, indexLargestDistance))
             print("-----------------------")
             #draw largest distance line in red
@@ -337,15 +337,15 @@ class URGPlotter(tk.Frame):
             listOfWalls = self.extractLines(scandata, first, indexLargestDistance)
             listOfWalls.extend(self.extractLines(scandata, indexLargestDistance, last))
         else:
-            listOfWalls = [(firstPointX, firstPointY, lastPointX, lastPointY)]             
-            #TODO onthoudt ook het aantal datapunten binnen deze range (hoe meer punten hoe betrouwbaarder deze lijn is)
+            #(x1,y1,x2,y2,index1,index2,amountOfDataPoints)
+            listOfWalls = [(firstPointX, firstPointY, lastPointX, lastPointY, first, last, last-first-missingDataCount)]
+            print("-----------------------")
             print("this was the largest line")
             sleep(0)
                 
         #lets visualize the corner lines
         # [self.canvas.itemconfig(self.lines[self.indexLargestDistance], fill=DISPLAY_SCAN_LINE_COLOR)]
         self.indexLargestDistance = indexLargestDistance
-        print("-----------------------")
         return listOfWalls
         
         
