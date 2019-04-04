@@ -39,6 +39,7 @@ from breezylidar import URG04LX
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
 from sys import exit, version
+from splitAndMerge import extractedLine, calculatePerpendicularLine
 
 if version[0] == '3':
     import tkinter as tk
@@ -57,7 +58,6 @@ def grab_scan(obj):
             sleep(.01) # pause a tiny amount to allow following check to work
             if not obj.running:
                 break
-
     
 class URGPlotter(tk.Frame):
     '''
@@ -217,6 +217,9 @@ class URGPlotter(tk.Frame):
             #TODO create filter to ignore outlieers
             extractedLines = self.extractLinesFrom2dDatapoints(self.scandata, firstValidPoint, lastValidPoint)
             #TODO merge lines
+            #The routine uses a standard statistical method, called Chi2- test, to compute a Mahalanobis distance between each pair
+            # of line segments based on already computed covariance matrices of line parameters. If 2 line segments have statistical
+            # distance less than a threshold, they are merged. T
             walls = self.extractWallsFromLines(extractedLines)
             
             if self.previousWalls is not None:
@@ -262,7 +265,7 @@ class URGPlotter(tk.Frame):
         # [self.canvas.itemconfig(self.linesExtracted[self.extractedLinesCountDebug], fill=DISPLAY_SCAN_LINE_COLOR_EXTRACTED_LINES)]
 
         #calculate distance and angle to line drawn through first and last point
-        perpendicularRadian, perpendicularDistanceRaw = self.calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw)
+        perpendicularRadian, perpendicularDistanceRaw = calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw)
 
         # #test purpose - draw perpendicular line with green
         # perpendicularDistance = perpendicularDistanceRaw * self.renderScale
@@ -316,37 +319,16 @@ class URGPlotter(tk.Frame):
             return elem.amountOfDataPoints
 
         extractedLines.sort(reverse=True, key=amountOfDataPoints)
-        #TODO for the biggest wall, calculate the mean line from all the data points 
+        #TODO for the biggest wall, calculate the mean line from all the data points (linear regression)
         #TODO best filter for wall selection: one that has the most data points, and variance is small!
         for idx, w in enumerate(extractedLines):
             print("idx: {}, point 1 idx: {}, point 2 idx: {}".format(idx, w.index1, w.index2))
             self.canvas.coords(self.linesExtracted[idx], w.x1, w.y1, w.x2, w.y2)
             widthWall = 1 + 10/(idx +1)
             self.canvas.itemconfig(self.linesExtracted[idx], fill=DISPLAY_SCAN_LINE_COLOR_EXTRACTED_LINES, width=widthWall)
+            perpendicularRadian, perpendicularDistance = calculatePerpendicularLine(w.x1Raw,w.y1Raw,w.x2Raw,w.y2Raw)
         
         return extractedLines
-    
-    def calculatePerpendicularLine(self, x1Raw, y1Raw, x2Raw, y2Raw):
-        diffX = x2Raw - x1Raw
-        diffY = y2Raw - y1Raw
-        slope = 0
-        if diffX != 0:
-            #step 1 see papier for uitwerking - calculate slope
-            slope = diffY / diffX
-            #step 2 - calculate perpendicular angle from origon to line
-            perpendicularRadian = -atan(slope)
-            #step 3 calculate perpendicular distance from origon to line
-            perpendicularDistance = (y1Raw-slope*x1Raw)/sqrt(slope*slope+1)            
-        elif diffY > 0:
-            #als de slope infinite is (de twee punt coordinaten staan op dezelfde x waarde)
-            perpendicularDistance = x2Raw
-            perpendicularRadian = 0
-        else:
-            perpendicularDistance = x2Raw
-            perpendicularRadian = pi
-        # print("perpendicular Angle: {}, Distance: {}".format(perpendicularAngle, perpendicularDistance))
-        # print("slope: {}".format(slope))
-        return perpendicularRadian, perpendicularDistance
     
     def calculateYaw(self, previousWalls, walls):
         return previousWalls[0].perpendicularRadian - walls[0].perpendicularRadian 
