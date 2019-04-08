@@ -190,6 +190,7 @@ class URGPlotter(tk.Frame):
         # The only thing here that has to happen is setting the lengh of the line, by setting a new endpoint for the line 
         # x = cos * scanPointDistance, y = sin * scanPointDistance
         # Modify the yellow displayed lines according to the current scan
+        print("call get scan")
         scandata = self.mocker.getScan()
         [self.canvas.coords(self.linesLidar[k], 
                             self.half_canvas_pix, \
