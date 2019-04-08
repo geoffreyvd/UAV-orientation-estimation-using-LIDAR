@@ -19,14 +19,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this code.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-#TODO
-#1. implement wall recognition, so we can estimate yaw angle on average of wall yaw angle displacements
-#2. try retrieving IMU yaw angle from pixhawk
-#3. wall recognition basesd on imu data, predict where wall from past iteration will be in new iteration
-#4. check if prediction of the walls are present in the new iteration, if so these are the same walls
-#5. so basically create a loop to check a predicted wall and compare it to all walls and see which it most likely represents
-
-#NOTE, if this programs returns breezylidar connect error, then just retry 2 times
+#NOTE, if this programs returns breezylidar connect error, then just retry 3 times
 URG_DEVICE                  = '/dev/ttyACM0'
 
 # Arbitrary display params
@@ -42,19 +35,31 @@ URG_MAX_SCAN_DIST_MM        = 2000
 URG_DETECTION_DEG           = 240
 URG_SCAN_SIZE               = 682
 
+from breezylidar import URG04LX
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
 from sys import exit, version
 from splitAndMerge import extractedLine, calculatePerpendicularLine, linearRegression
-from mockLIDAR import URGMocker, READ_FROM_SERIAL, READ_FROM_FILE
 # TODO, use numpy instead of python list
 
 if version[0] == '3':
     import tkinter as tk
+    import _thread as thread
 else:
     import Tkinter as tk
-    
-def multiplication(a, b): #TODO make lambda
+    import thread
+
+# Runs on its own thread
+def grab_scan(obj):
+    while True:
+        scandata = obj.lidar.getScan()
+        if scandata:
+            obj.scandata = scandata
+            obj.count += 1
+            sleep(.01) # pause a tiny amount to allow following check to work
+            if not obj.running:
+                break
+def multiplication(a, b):
     return a*b
 
 class URGPlotter(tk.Frame):
@@ -94,7 +99,13 @@ class URGPlotter(tk.Frame):
 
         # No scanlines initially                             
         self.linesLidar = []
-
+        
+        # Create a URG04LX object and connect to it
+        self.lidar = URG04LX(URG_DEVICE)
+        
+        # No scan data to start
+        self.scandata = []
+        
         self.extractedLinesCountDebug = 0
         self.perpendicularLineCount = 0
         self.previousWalls = None
@@ -103,8 +114,6 @@ class URGPlotter(tk.Frame):
         self.listOfYaw = []
         self.listOfYawLR =[]
         
-        self.mocker = URGMocker(READ_FROM_FILE)
-
         # Pre-compute some values useful for plotting        
         scan_angle_rad = [radians(-URG_DETECTION_DEG/2 + (float(k)/URG_SCAN_SIZE) * \
                                    URG_DETECTION_DEG) for k in range(URG_SCAN_SIZE)]
@@ -120,7 +129,7 @@ class URGPlotter(tk.Frame):
         self.cosRaw = [ cos(angle) for angle in scan_angle_rad]
         self.sinRaw = [ sin(angle) for angle in scan_angle_rad]
         
-        # Add scan lines to canvas, to be modified later, TODO extract visualisation to different class
+        # Add scan lines to canvas, to be modified later        
         self.linesLidar = [self.canvas.create_line(\
                          self.half_canvas_pix, \
                          self.half_canvas_pix, \
@@ -142,7 +151,10 @@ class URGPlotter(tk.Frame):
                          
         [self.canvas.itemconfig(line, fill=DISPLAY_SCAN_LINE_COLOR) for line in self.linesLidar]
         print("origin x and y: {}, renderScale: {}".format(self.half_canvas_pix, self.renderScale))
-        
+
+        # Start a new thread and set a flag to let it know when we stop running
+        thread.start_new_thread( grab_scan, (self,) )       
+        self.running = True      
         
     def run(self):
         '''
@@ -190,7 +202,7 @@ class URGPlotter(tk.Frame):
         # The only thing here that has to happen is setting the lengh of the line, by setting a new endpoint for the line 
         # x = cos * scanPointDistance, y = sin * scanPointDistance
         # Modify the yellow displayed lines according to the current scan
-        scandata = self.mocker.getScan()
+        scandata = self.scandata[:] #make copy of data, very important because of the parallel thread
         [self.canvas.coords(self.linesLidar[k], 
                             self.half_canvas_pix, \
                             self.half_canvas_pix, \

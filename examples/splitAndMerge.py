@@ -31,9 +31,11 @@ class extractedLine(metaclass=AutoInit):
     '''
     line notation class
     '''
+    refinedRadian = 0
+    refinedDistance = 0
                 #(x1,y1,x2,y2,index1,index2,amountOfDataPoints, perpendicularRadian)
 
-    def __init__(self, x1, y1, x2, y2, x1Raw, y1Raw, x2Raw, y2Raw, index1, index2, amountOfDataPoints, perpendicularRadian):
+    def __init__(self, x1, y1, x2, y2, x1Raw, y1Raw, x2Raw, y2Raw, index1, index2, amountOfDataPoints, perpendicularDistance, perpendicularRadian):
         pass
 
 def calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw):
