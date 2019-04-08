@@ -26,6 +26,7 @@ along with this code.  If not, see <http://www.gnu.org/licenses/>.
 #4. check if prediction of the walls are present in the new iteration, if so these are the same walls
 #5. so basically create a loop to check a predicted wall and compare it to all walls and see which it most likely represents
 
+#TODO fix debugger visual studio code
 #NOTE, if this programs returns breezylidar connect error, then just retry 2 times
 
 # URG-04LX specs
@@ -52,12 +53,6 @@ class URGPlotter():
         '''
         Takes no args.  Maybe we could specify colors, lidar params, etc.
         '''
-
-        # No scanlines initially                             
-        self.linesLidar = []
-
-        self.extractedLinesCountDebug = 0
-        self.perpendicularLineCount = 0
         self.previousWalls = None
 
         #test
@@ -148,7 +143,6 @@ class URGPlotter():
                 #TODO match corner points to previous iteration (by lookign at similar distance and angle)
 
             self.previousWalls = walls
-            self.extractedLinesCountDebug = 0
             self.lidarVisualiser.updateGUI()
             sleep(3) #test purpose
 
@@ -229,13 +223,8 @@ class URGPlotter():
         listX = []
         listY = []
         for i in range(walls[0].index1, walls[0].index2+1):
-            print(i)
             listX.append(scandata[i] * self.sinRaw[i])
             listY.append(scandata[i] * self.cosRaw[i])
-        print("x1: {}, y1: {}".format(walls[0].x1Raw, walls[0].y1Raw))
-        print("x2: {}, y2 :{}".format(walls[0].x2Raw, walls[0].y2Raw))
-        print("x1: {}, y1: {}".format(listX[0], listY[0]))
-        print("x2: {}, y2 :{}".format(listX[-1], listY[-1]))
         return linearRegression(listX, listY)
         
 # Instantiate and pop up the window

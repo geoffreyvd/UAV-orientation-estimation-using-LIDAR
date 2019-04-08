@@ -65,15 +65,12 @@ class URGMocker():
             i=0
             for i in range(self.scanIndex, len(self.bytesFromLIDAR), 2):
                 parsedInt = int.from_bytes([self.bytesFromLIDAR[i], self.bytesFromLIDAR[i+1]] , 'big')
-                print("parsed int: {}".format(parsedInt))
-                print("i: {}".format(i))
                 if parsedInt == LOG_END_OF_DISTANCE:
                     continue
                 elif parsedInt == LOG_END_OF_SCAN:
                     break
                 else:
                     scandata.append(parsedInt)
-            print("scanindex: {}".format(self.scanIndex)) 
             self.scanIndex = i + 2   
             return scandata
         else:

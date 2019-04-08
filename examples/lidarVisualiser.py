@@ -62,6 +62,8 @@ class lidarVisualiser(tk.Frame):
 
         self.perpendicularLineCount = 0
         self.extractedLinesCountDebug = 0
+        # No scanlines initially                             
+        self.linesLidar = []
 
         # Add scan lines to canvas, to be modified later
         self.linesLidar = [self.canvas.create_line(\
@@ -128,6 +130,7 @@ class lidarVisualiser(tk.Frame):
         [self.canvas.itemconfig(self.linesLidar[indexLargestDistance], fill=DISPLAY_SCAN_LINE_COLOR_LARGEST_DISTANCE)]
         
     def updateGUI(self):
+        self.extractedLinesCountDebug = 0 #root of evil - side functionality
         self.update()
     
     def getShowCount(self):
