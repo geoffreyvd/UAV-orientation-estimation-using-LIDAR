@@ -60,6 +60,16 @@ def calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw):
         # print("slope: {}".format(slope))
         return perpendicularRadian, perpendicularDistance
 
+def matchWallsWithNewIteration():
+    return 0
+    #TODO
+    #1. implement wall recognition, so we can estimate yaw angle on average of wall yaw angle displacements
+    #2. try retrieving IMU yaw angle from pixhawk (NEXT UP)
+    #3. wall recognition basesd on imu data, predict where wall from past iteration will be in new iteration
+    #4. check if prediction of the walls are present in the new iteration, if so these are the same walls
+    #5. so basically create a loop to check a predicted wall and compare it to all walls and see which it most likely represents
+
+
 #total least fitting
 def linearRegression(listX, listY):
     n = len(listX)
