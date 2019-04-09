@@ -1,40 +1,14 @@
 #!/usr/bin/env python3
-
-'''
-urgplot.py : A little Python class to display Lidar scans from the Hokuyo URG-04LX
-             
-Copyright (C) 2014 Simon D. Levy
-
-This code is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as 
-published by the Free Software Foundation, either version 3 of the 
-License, or (at your option) any later version.
-
-This code is distributed in the hope that it will be useful,     
-but WITHOUT ANY WARRANTY without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public License 
-along with this code.  If not, see <http://www.gnu.org/licenses/>.
-'''
 #TODO fix debugger visual studio code
 #NOTE, if this programs returns breezylidar connect error, then just retry 2 times
 
-# URG-04LX specs
-URG_MAX_SCAN_DIST_MM        = 2000
-URG_DETECTION_DEG           = 240
-URG_SCAN_SIZE               = 682
-
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
-from splitAndMerge import extractedLine, calculatePerpendicularLine, linearRegression
+from splitAndMerge import splitAndMerge
 from mockLIDAR import URGMocker, READ_FROM_SERIAL, READ_FROM_FILE
-from lidarVisualiser import lidarVisualiser, DISPLAY_CANVAS_SIZE_PIXELS
+from lidarVisualiser import lidarVisualiser
+from lidarAndCanvasConfig import lidarAndCanvasConfig
 # TODO, use numpy instead of python list
-    
-def multiplication(a, b): #TODO make lambda
-    return a*b
 
 class URGPlotter():
     '''
@@ -51,21 +25,10 @@ class URGPlotter():
         self.listOfYaw = []
         self.listOfYawLR =[]
         
+        self.config = lidarAndCanvasConfig()
         self.mocker = URGMocker(READ_FROM_FILE)
-        self.lidarVisualiser = lidarVisualiser()        
-        self.renderScale = self.lidarVisualiser.renderScale
-        self.half_canvas_pix = DISPLAY_CANVAS_SIZE_PIXELS/2
-
-        # Pre-compute some values useful for plotting        
-        scan_angle_rad = [radians(-URG_DETECTION_DEG/2 + (float(k)/URG_SCAN_SIZE) * \
-                                   URG_DETECTION_DEG) for k in range(URG_SCAN_SIZE)]
-        self.scanRadians = scan_angle_rad
-        self.scanAngles = [scan_angle_rad[k]*180/pi for k in range(URG_SCAN_SIZE)]
-
-        self.cos = [-cos(angle) * self.renderScale for angle in scan_angle_rad]
-        self.sin = [ sin(angle) * self.renderScale for angle in scan_angle_rad]
-        self.cosRaw = [ cos(angle) for angle in scan_angle_rad]
-        self.sinRaw = [ sin(angle) for angle in scan_angle_rad]        
+        self.lidarVisualiser = lidarVisualiser(self.config)
+        self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
         
     def run(self):
         '''
@@ -73,17 +36,9 @@ class URGPlotter():
         '''        
         # Record start time and initiate a count of scans for testing
         self.start_sec = time()        
-        # self.lidarVisualiser.startGUI() 
-        # Start the recursive timer-task
+        
         while True:
             plotter._task()        
-        
-    def destroy(self):
-        '''
-        Called automagically when user clicks X to close window.
-        '''  
-
-        self._quit()
 
     def _quit(self):
         elapsed_sec = time() - self.start_sec
@@ -111,14 +66,14 @@ class URGPlotter():
                 lastValidPoint -= 1
                 i = scandata[lastValidPoint]
 
-            extractedLines = self.extractLinesFrom2dDatapoints(scandata, firstValidPoint, lastValidPoint)
+            extractedLines = self.splitAndMerge.extractLinesFrom2dDatapoints(scandata, firstValidPoint, lastValidPoint)
             #TODO merge lines
             #The routine uses a standard statistical method, called Chi2- test, to compute a Mahalanobis distance between each pair
             # of line segments based on already computed covariance matrices of line parameters. If 2 line segments have statistical
             # distance less than a threshold, they are merged. T
-            walls = self.extractWallsFromLines(extractedLines)
+            walls = self.splitAndMerge.extractWallsFromLines(extractedLines)
 
-            radians, distance = self.refineWallParameters(walls, scandata)
+            radians, distance = self.splitAndMerge.refineWallParameters(walls, scandata)
             walls[0].refinedRadian = radians
             walls[0].refinedDistance = distance
             print("radians: {}, distance: {}".format(walls[0].perpendicularRadian,walls[0].perpendicularDistance))
@@ -143,79 +98,9 @@ class URGPlotter():
         #     print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
         #     print("no linear regression, average yaw error: {}".format(sum(self.listOfYaw)/lengthList))
         #     sleep(10)
-        # Reschedule this task immediately
-        # self.after(1, self._task)
-
-    # lets calculate the corner points - split and merge
-    def extractLinesFrom2dDatapoints(self, scandata, first, last):
-        x1Raw = self.sinRaw[first] * scandata[first]
-        y1Raw = self.cosRaw[first] * scandata[first]
-        x2Raw = self.sinRaw[last] * scandata[last]
-        y2Raw = self.cosRaw[last] * scandata[last]
-
-        firstPointX = self.half_canvas_pix + x1Raw * self.renderScale
-        firstPointY = self.half_canvas_pix + -y1Raw * self.renderScale        
-        lastPointX = self.half_canvas_pix + x2Raw * self.renderScale
-        lastPointY = self.half_canvas_pix + -y2Raw * self.renderScale
-
-        # #test purposes - draw blue line from first point to last point
-        # self.lidarVisualiser.plotSplitLine(firstPointX, firstPointY, lastPointX, lastPointY)
-
-        #calculate distance and angle to line drawn through first and last point
-        perpendicularRadian, perpendicularDistanceRaw = calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw)
-
-        # #test purpose - draw perpendicular line with green 
-        # self.lidarVisualiser.plotPerpendicularLines(perpendicularDistance, perpendicularRadian)    
-
-        largestDistance = 0
-        indexLargestDistance = 0
-        missingDataCount = 0
-        for i in range(first +1, last):
-            if scandata[i] != 0:
-                # math step 4 on paper, calculate distance from each point to perpendicular line
-                distance = fabs(scandata[i] * cos(perpendicularRadian - self.scanRadians[i]) - perpendicularDistanceRaw)
-                if distance > largestDistance:
-                    indexLargestDistance = i
-                    largestDistance = distance
-            else:
-                missingDataCount+=1
-
-        #threshhold for detecting new corner point (in mm)
-        if largestDistance > 30:
-            # # test purpose - draw largest distance line in red
-            # self.lidarVisualiser.plotLargestDistance(indexLargestDistance)
-            
-            #recursively check for new corner points
-            listOfWalls = self.extractLinesFrom2dDatapoints(scandata, first, indexLargestDistance)
-            listOfWalls.extend(self.extractLinesFrom2dDatapoints(scandata, indexLargestDistance, last))
-        else:
-            #(x1,y1,x2,y2,index1,index2,amountOfDataPoints,perpendicularDistance, perpendicularRadian)
-            listOfWalls = [extractedLine(firstPointX, firstPointY, lastPointX, lastPointY, x1Raw, y1Raw, x2Raw, y2Raw, first, 
-                last, last-first-missingDataCount, perpendicularDistanceRaw, perpendicularRadian)]
-        return listOfWalls
-
-    def extractWallsFromLines(self, extractedLines):
-        print("wall count: {}, ".format(len(extractedLines)))
-            
-        def amountOfDataPoints(elem):
-            return elem.amountOfDataPoints
-
-        extractedLines.sort(reverse=True, key=amountOfDataPoints)
-        #TODO best filter for wall selection: one that has the most data points, and variance is small!
-        self.lidarVisualiser.plotWalls(extractedLines)        
-        return extractedLines
 
     def calculateYaw(self, previousWalls, walls):
         return previousWalls[0].refinedRadian - walls[0].refinedRadian 
-
-
-    def refineWallParameters(self, walls, scandata):
-        listX = []
-        listY = []
-        for i in range(walls[0].index1, walls[0].index2+1):
-            listX.append(scandata[i] * self.sinRaw[i])
-            listY.append(scandata[i] * self.cosRaw[i])
-        return linearRegression(listX, listY)
         
 # Instantiate and pop up the window
 if __name__ == '__main__':
