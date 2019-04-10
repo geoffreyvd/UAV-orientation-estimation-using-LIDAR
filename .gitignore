@@ -1,2 +1,3 @@
 *.o
 python/build
+*/.vscode/*
