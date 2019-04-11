@@ -9,6 +9,7 @@ from splitAndMerge import splitAndMerge
 from mockLIDAR import URGMocker, READ_FROM_SERIAL, READ_FROM_FILE
 from lidarVisualiser import lidarVisualiser
 from lidarAndCanvasConfig import lidarAndCanvasConfig
+from pixhawkWrapper import pixhawk
 # TODO, use numpy instead of python list
 
 class URGPlotter():
@@ -27,7 +28,7 @@ class URGPlotter():
         self.listOfYawLR =[]
         
         self.config = lidarAndCanvasConfig()
-        self.mocker = URGMocker(READ_FROM_FILE)
+        self.mocker = URGMocker(READ_FROM_SERIAL)
         self.lidarVisualiser = lidarVisualiser(self.config)
         self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
         
@@ -78,12 +79,6 @@ class URGPlotter():
 
             self.calculateYaw(walls)
 
-            #get IMU yaw
-            #estimated walls = add yaw to all walls from previous iteraiton
-            #substract current wall angles and distances from estimated wall angles and distances
-            #take the smallest difference, and if smaller than a certain threshhold, the 2 walls match
-
-
             #TODO match corner points to previous iteration (by lookign at similar distance and angle)
 
             self.previousWalls = walls
@@ -102,12 +97,40 @@ class URGPlotter():
         print("LR, radians: {}, distance: {}".format(walls[0].refinedRadian,walls[0].refinedDistance))
         
         if self.previousWalls is not None:
-            yaw = self.previousWalls[0].perpendicularRadian - walls[0].perpendicularRadian 
-            print("yaw angle: {}, last index: {}".format(yaw*180/pi, walls[0].index2))
-            self.listOfYaw.append(yaw)
-            yawLR = self.previousWalls[0].refinedRadian - walls[0].refinedRadian
-            print("yaw angle LR: {}".format(yawLR*180/pi))
-            self.listOfYawLR.append(yawLR)
+            #get IMU yaw
+            #estimated walls = add yaw to all walls from previous iteraiton
+            #substract current wall angles and distances from estimated wall angles and distances
+            #take the smallest difference, and if smaller than a certain threshhold, the 2 walls match
+            wallMapping = []
+            yaw = pixhawk.getYawIMU()
+            for i in range(0, 6):
+                #TODO 1) check whetehr it has to be plus or minus yaw
+                #TODO 2) check whether perpendicularDistance negative and positive has impact on this
+                self.previousWalls[i].perpendicularRadian += yaw
+                # distance + imu translation
+                smallestYawDiff = 9999
+                smallestYawDiffIndex = -1
+                for j in range(0, 6):
+                    yawDiff = abs(self.previousWalls[i].perpendicularRadian - walls[j].perpendicularRadian)
+                    if yawDiff < smallestYawDiff:
+                        smallestYawDiff = yawDiff
+                        smallestYawDiffIndex = j
+                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.03:
+                    #threshold based on IMU uncertainty/error after 100ms ~1,7degrees?
+                    wallMapping.append((i, smallestYawDiffIndex))
+            
+            averageYaw = 0
+            for map in wallMapping:
+                averageYaw += self.previousWalls[map[0]].perpendicularRadian - walls[map[1]].perpendicularRadian            
+            if len(wallMapping) != 0:
+                averageYaw /= len(wallMapping)
+                yaw0 = self.previousWalls[wallMapping[0][0]].perpendicularRadian - walls[wallMapping[0][1]].perpendicularRadian 
+                print("yaw angle: {}, last index: {}".format(yaw0*180/pi, walls[0].index2))
+                self.listOfYaw.append(yaw0)
+                # #refinedradian has to be defined for different mapping aswell
+                # yawLR = self.previousWalls[0].refinedRadian - walls[0].refinedRadian
+                # print("yaw angle LR: {}".format(yawLR*180/pi))
+                # self.listOfYawLR.append(yawLR)
 
 # Instantiate and pop up the window
 if __name__ == '__main__':
