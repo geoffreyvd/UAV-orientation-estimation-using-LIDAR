@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-URG_DEVICE                  = '/dev/ttyACM0'
+URG_DEVICE                  = '/dev/URG04LX'
+#static usb refernece for URG04LX:
+#idVendor: 15d1
+#idProduct: 0000
 
 LOG_END_OF_DISTANCE = 10001
 LOG_END_OF_SCAN = 10002

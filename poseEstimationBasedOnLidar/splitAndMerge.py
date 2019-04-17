@@ -12,7 +12,14 @@ def calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw):
             #step 2 - calculate perpendicular angle from origon to line
             perpendicularRadian = -atan(slope)
             #step 3 calculate perpendicular distance from origon to line
-            perpendicularDistance = (y1Raw-slope*x1Raw)/sqrt(slope*slope+1)            
+            perpendicularDistance = (y1Raw-slope*x1Raw)/sqrt(slope*slope+1)
+            if perpendicularDistance < 0:
+                perpendicularDistance = abs(perpendicularDistance)
+                if perpendicularRadian > 0:
+                    perpendicularRadian = -pi + perpendicularRadian
+                else:
+                    perpendicularRadian = pi + perpendicularRadian
+
         elif diffY > 0:
             #als de slope infinite is (de twee punt coordinaten staan op dezelfde x waarde)
             perpendicularDistance = x2Raw

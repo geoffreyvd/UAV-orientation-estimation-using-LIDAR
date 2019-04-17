@@ -4,5 +4,7 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"python.pythonPath": "/home/geoffrey/anaconda3/bin/python3"
+	}
 }
