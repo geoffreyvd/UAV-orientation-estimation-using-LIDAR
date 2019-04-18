@@ -5,10 +5,22 @@ import rospy
 from sensor_msgs.msg import Imu
 #from pyquaternion import Quaternion
 from math import atan2, pi
+from time import time
 
 #static usb refernce for pixhawp4:
 #idVendor: 26ac
 #idProduct: 0032
+
+def callbackIMU(data, pipeToMain):
+    pipeToMain.send(data.orientation)
+    print("yes imu callback triggert")
+
+def parallelFuncImuYaw(pipeToMain):
+    rospy.init_node('listener', anonymous=True)
+    rospy.Subscriber("/mavros/imu/data", Imu, callbackIMU, pipeToMain, tcp_nodelay=True)
+    while 1:
+        sleep(0.01)
+    pipeToMain.close()
 
 def extractEulerYaw(orient):
     #q0, q1, q2, q3 corresponds to w,x,y,z 
@@ -17,24 +29,49 @@ def extractEulerYaw(orient):
 
 class pixhawk():
     def __init__(self):
-        self.previousYaw = 0
-        rospy.init_node('listener', anonymous=True)
-        rospy.Subscriber("/mavros/imu/data", Imu, self.callback)
+        self.previousYaw = None
+        self.orientation = None
+        self.start_sec = time()
+
+        self.pipeFromImu, child_conn = Pipe()
+        processPipeImuYaw = Process(target=parallelFuncImuYaw, args=(child_conn,))
+        processPipeImuYaw.start()
+
+        # rospy.Subscriber("/mavros/imu/data", Imu, self.callback, tcp_nodelay=True)
 
     def callback(self, data):
         # rospy.loginfo("\ndata.orientation:\nx: [{}]\ny: [{}]\nz: [{}]\nw: [{}]"
         # .format(data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w))
         self.orientation = data.orientation
+        print("[{}], yeay yaw imu".format(time() - self.start_sec))
 
     def getImuYaw(self):
         yaw = extractEulerYaw(self.orientation)
         return yaw
     
+    # def getImuYawDisplacement(self):
+    #     if self.orientation is not None:
+    #         yaw = extractEulerYaw(self.orientation)
+    #         if self.previousYaw is None:
+    #             self.previousYaw = yaw
+    #             return None
+    #         diffInYaw = yaw - self.previousYaw
+    #         self.previousYaw = yaw
+    #         return diffInYaw
+    #     else:
+    #         return None
+    
     def getImuYawDisplacement(self):
-        yaw = extractEulerYaw(self.orientation)
-        diffInYaw = self.previousYaw - yaw
-        self.previousYaw = yaw
-        return diffInYaw
+        yaw = None        
+        while self.pipeFromImu.poll():
+            yaw = self.pipeFromImu.recv()
+        if yaw is not None:            
+            if self.previousYaw is not None:
+                imuYawBetweenLidarScans = yaw - self.previousYaw
+                self.previousYaw = yaw
+                return imuYawBetweenLidarScans
+            self.previousYaw = yaw
+        return None
 
 if __name__ == '__main__':
     px = pixhawk()

@@ -26,9 +26,8 @@ def grab_scan(obj):
         if scandata:
             obj.scandata = scandata
             obj.scanCount += 1
-            sleep(.01) # pause a tiny amount to allow following check to work
-            if not obj.running:
-                break
+            sleep(.025) # pause a tiny amount to allow following check to work
+#TODO grab scan also immeditaly has to retrieve imu yaw
                 
 class URGMocker():
     '''
@@ -53,7 +52,7 @@ class URGMocker():
         elif readFrom == READ_FROM_SERIAL:
             # Create a URG04LX object and connect to it
             self.lidar = URG04LX(URG_DEVICE)
-            thread.start_new_thread( grab_scan, (self,) ) 
+            #thread.start_new_thread( grab_scan, (self,) ) 
         else:
             self.lidar = URG04LX(URG_DEVICE)
             self.readScanFromLidarAndWriteToFile()
@@ -77,7 +76,8 @@ class URGMocker():
             self.scanIndex = i + 2   
             return scandata
         else:
-            return self.scandata
+            self.scanCount += 1
+            return self.lidar.getScan()
 
     def getCount(self):
         return self.scanCount

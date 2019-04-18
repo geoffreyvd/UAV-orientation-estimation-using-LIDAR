@@ -157,7 +157,7 @@ class splitAndMerge():
 
         #TODO best filter for wall selection: one that has the most data points, and variance is small!
         extractedLines.sort(reverse=True, key=lambda x : x.amountOfDataPoints)
-        self.lidarVisualiser.plotWalls(extractedLines)        
+        #self.lidarVisualiser.plotWalls(extractedLines)        
         return extractedLines
     
     def refineWallParameters(self, walls, scandata):

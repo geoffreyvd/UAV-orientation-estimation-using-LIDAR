@@ -31,19 +31,20 @@ class URGPlotter():
         
         self.config = lidarAndCanvasConfig()
         self.mocker = URGMocker(READ_FROM_SERIAL)
+        self.pixhawk4 = pixhawk()
         self.lidarVisualiser = lidarVisualiser(self.config)
         self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
-        self.pixhawk4 = pixhawk()
         
     def run(self):
         '''
         Call this when you're ready to run.
         '''        
         # Record start time and initiate a count of scans for testing
-        self.start_sec = time()        
-        
+        self.start_sec = time()
+
         while True:
-            plotter._task()        
+            plotter._task()    
+            sleep(0.01)    
 
     def _quit(self):
         elapsed_sec = time() - self.start_sec
@@ -58,7 +59,10 @@ class URGPlotter():
         # x = cos * scanPointDistance, y = sin * scanPointDistance
         scandata = self.mocker.getScan()
         if scandata:
-            self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
+            lengthList = len(self.listOfYaw)
+            startTimeIteration = time()
+            print("[{}], {}".format(startTimeIteration - self.start_sec, lengthList))
+            #self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
             i = 0
             firstValidPoint = -1
             while i == 0:
@@ -87,21 +91,21 @@ class URGPlotter():
             self.previousWalls = walls
             #self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
+            print(time() - startTimeIteration)
 
-        lengthList = len(self.listOfYaw)
-        if lengthList % 1000 == 0 and lengthList> 0:
-            #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
-            print("no linear regression, yaw error: {}".format(sum(self.listOfYaw)))
-            print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
-            self._quit()
+            if lengthList % 1000 == 0 and lengthList> 0:
+                #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
+                print("no linear regression, yaw error: {}".format(sum(self.listOfYaw)))
+                print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
+                self._quit()
         
     def calculateYaw(self, walls):
         #print("radians: {}, distance: {}".format(walls[0].perpendicularRadian,walls[0].perpendicularDistance))
         #TODO teken de lr lijn, volgens mij is het dikke poep
         #print("LR, radians: {}, distance: {}".format(walls[0].refinedRadian,walls[0].refinedDistance))
         yaw = self.pixhawk4.getImuYawDisplacement()
-        
-        if self.previousWalls is not None:
+
+        if self.previousWalls is not None and yaw is not None:
             wallMapping = []
             estimatedWalls = []
             #estimated walls = add yaw to all walls from previous iteraiton
