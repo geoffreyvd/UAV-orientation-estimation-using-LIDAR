@@ -14,20 +14,20 @@ from breezylidar import URG04LX
 from time import time, sleep, ctime
 from sys import exit, version
 
-if version[0] == '3':
-    import _thread as thread
-else:
-    import thread
+# if version[0] == '3':
+#     import _thread as thread
+# else:
+#     import thread
 
 # Runs on its own thread
-def grab_scan(obj):
-    while True:
-        scandata = obj.lidar.getScan()
-        if scandata:
-            obj.scandata = scandata
-            obj.scanCount += 1
-            sleep(.025) # pause a tiny amount to allow following check to work
-#TODO grab scan also immeditaly has to retrieve imu yaw
+# def grab_scan(obj):
+#     while True:
+#         scandata = obj.lidar.getScan()
+#         if scandata:
+#             obj.scandata = scandata
+#             obj.scanCount += 1
+#             sleep(.025) # pause a tiny amount to allow following check to work
+# #TODO grab scan also immeditaly has to retrieve imu yaw
                 
 class URGMocker():
     '''

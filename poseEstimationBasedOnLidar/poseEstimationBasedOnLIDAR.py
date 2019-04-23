@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-#TODO fix debugger visual studio code
-#NOTE !important! usb order: first connect pixhawk, then lidar
-#NOTE, if this programs returns breezylidar connect error, then just retry 2 times
 
 #apt-get install python3-tk
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
@@ -52,6 +49,7 @@ class URGPlotter():
         showCount = self.lidarVisualiser.getShowCount()
         print('%d scans    in %f sec = %f scans/sec' % (scanCount, elapsed_sec, scanCount/elapsed_sec))
         print('%d displays in %f sec = %f displays/sec' % (showCount, elapsed_sec, showCount/elapsed_sec))
+        self.pixhawk4.closeParallelProcess()
         exit(0)
 
     def _task(self):
@@ -61,7 +59,7 @@ class URGPlotter():
         if scandata:
             lengthList = len(self.listOfYaw)
             startTimeIteration = time()
-            print("[{}], {}".format(startTimeIteration - self.start_sec, lengthList))
+            # print("[{}], {}".format(startTimeIteration - self.start_sec, lengthList))
             #self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
             i = 0
             firstValidPoint = -1
@@ -91,9 +89,9 @@ class URGPlotter():
             self.previousWalls = walls
             #self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
-            print(time() - startTimeIteration)
+            #print(time() - startTimeIteration)
 
-            if lengthList % 1000 == 0 and lengthList> 0:
+            if lengthList % 10 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw error: {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))

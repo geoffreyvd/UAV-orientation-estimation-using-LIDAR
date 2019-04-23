@@ -5,7 +5,8 @@ import rospy
 from sensor_msgs.msg import Imu
 #from pyquaternion import Quaternion
 from math import atan2, pi
-from time import time
+from time import time, sleep
+from multiprocessing import Process, Pipe
 
 #static usb refernce for pixhawp4:
 #idVendor: 26ac
@@ -13,10 +14,11 @@ from time import time
 
 def callbackIMU(data, pipeToMain):
     pipeToMain.send(data.orientation)
-    print("yes imu callback triggert")
 
+#parallel process needed because imu data was not being fetched at 50Hz, because main was blocking thread
 def parallelFuncImuYaw(pipeToMain):
     rospy.init_node('listener', anonymous=True)
+    #tcp nodelay, don wait for ACK, just send all pakcets individually asap
     rospy.Subscriber("/mavros/imu/data", Imu, callbackIMU, pipeToMain, tcp_nodelay=True)
     while 1:
         sleep(0.01)
@@ -34,8 +36,8 @@ class pixhawk():
         self.start_sec = time()
 
         self.pipeFromImu, child_conn = Pipe()
-        processPipeImuYaw = Process(target=parallelFuncImuYaw, args=(child_conn,))
-        processPipeImuYaw.start()
+        self.processPipeImuYaw = Process(target=parallelFuncImuYaw, args=(child_conn,))
+        self.processPipeImuYaw.start()
 
         # rospy.Subscriber("/mavros/imu/data", Imu, self.callback, tcp_nodelay=True)
 
@@ -48,6 +50,9 @@ class pixhawk():
     def getImuYaw(self):
         yaw = extractEulerYaw(self.orientation)
         return yaw
+
+    def closeParallelProcess(self):
+        self.processPipeImuYaw.terminate()
     
     # def getImuYawDisplacement(self):
     #     if self.orientation is not None:
@@ -64,8 +69,9 @@ class pixhawk():
     def getImuYawDisplacement(self):
         yaw = None        
         while self.pipeFromImu.poll():
-            yaw = self.pipeFromImu.recv()
-        if yaw is not None:            
+            yaw = extractEulerYaw(self.pipeFromImu.recv())
+        if yaw is not None:
+            print(yaw*180/pi)
             if self.previousYaw is not None:
                 imuYawBetweenLidarScans = yaw - self.previousYaw
                 self.previousYaw = yaw
