@@ -60,7 +60,7 @@ class URGPlotter():
             lengthList = len(self.listOfYaw)
             startTimeIteration = time()
             # print("[{}], {}".format(startTimeIteration - self.start_sec, lengthList))
-            #self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
+            self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
             i = 0
             firstValidPoint = -1
             while i == 0:
@@ -87,11 +87,11 @@ class URGPlotter():
             #TODO match corner points to previous iteration (by lookign at similar distance and angle)
 
             self.previousWalls = walls
-            #self.lidarVisualiser.updateGUI()
+            self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
 
-            if lengthList % 10 == 0 and lengthList> 0:
+            if lengthList % 100 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw error: {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
@@ -121,8 +121,8 @@ class URGPlotter():
                         smallestYawDiff = yawDiff
                         smallestYawDiffIndex = j
                 #take the smallest difference, and if smaller than a certain threshhold, the 2 walls match
-                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.03:
-                    #threshold based on IMU uncertainty/error after 100ms ~1,7degrees?
+                if smallestYawDiffIndex != -1 and smallestYawDiff < 6:
+                    #threshold based on IMU uncertainty/error after 100ms?
                     wallMapping.append((i, smallestYawDiffIndex))
             
             averageYaw = 0
