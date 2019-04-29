@@ -16,7 +16,7 @@ class lidarAndCanvasConfig():
         self.renderScale = self.half_canvas_pix / float(URG_MAX_SCAN_DIST_MM)
 
         # Pre-compute some values useful for plotting        
-        scan_angle_rad = [radians(-URG_DETECTION_DEG/2 + (float(k)/URG_SCAN_SIZE) * \
+        scan_angle_rad = [radians(URG_DETECTION_DEG/2 - (float(k)/URG_SCAN_SIZE) * \
                                    URG_DETECTION_DEG) for k in range(URG_SCAN_SIZE)]
         self.scanRadians = scan_angle_rad
         self.scanAngles = [scan_angle_rad[k]*180/pi for k in range(URG_SCAN_SIZE)]

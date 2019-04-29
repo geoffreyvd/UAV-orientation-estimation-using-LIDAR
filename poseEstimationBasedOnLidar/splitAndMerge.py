@@ -65,6 +65,19 @@ def matchWallsWithNewIteration():
     #4. check if prediction of the walls are present in the new iteration, if so these are the same walls
     #5. so basically create a loop to check a predicted wall and compare it to all walls and see which it most likely represents
 
+def mergeCollinearlines(walls):
+    for wall in walls:
+        for wall2 in walls:
+            if wall != wall2:
+                diffAngle = abs(wall.perpendicularAngle - wall2.perpendicularAngle) 
+                diffDistance = abs(wall.perpendicularDistanceRaw - wall2.perpendicularDistanceRaw) 
+                if diffAngle < 0.001 and diffDistance < 10:
+                    newWall = appendWalls(wall, wall2)
+                    newWall.amountOfDataPoints
+                    walls.append(amountOfDataPoints)
+                    #walls.del
+    #replace old walls with new walls, : somelist[:] = [tup for tup in somelist if determine(tup)]
+    
 #super class which can be inherited to use constructor parameter names as class variable names
 class AutoInit(type):
   def __new__(meta, classname, supers, classdict):
@@ -153,8 +166,6 @@ class splitAndMerge():
         return listOfWalls
 
     def extractWallsFromLines(self, extractedLines):
-        print("wall count: {}, ".format(len(extractedLines)))
-
         #TODO best filter for wall selection: one that has the most data points, and variance is small!
         extractedLines.sort(reverse=True, key=lambda x : x.amountOfDataPoints)
         self.lidarVisualiser.plotWalls(extractedLines)        
