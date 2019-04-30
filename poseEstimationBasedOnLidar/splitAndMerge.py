@@ -58,25 +58,46 @@ def linearRegression(listX, listY):
 
 def matchWallsWithNewIteration():
     return 0
-    #TODO
-    #1. implement wall recognition, so we can estimate yaw angle on average of wall yaw angle displacements
-    #2. try retrieving IMU yaw angle from pixhawk (NEXT UP)
-    #3. wall recognition basesd on imu data, predict where wall from past iteration will be in new iteration
-    #4. check if prediction of the walls are present in the new iteration, if so these are the same walls
-    #5. so basically create a loop to check a predicted wall and compare it to all walls and see which it most likely represents
 
 def mergeCollinearlines(walls):
-    for wall in walls:
-        for wall2 in walls:
-            if wall != wall2:
-                diffAngle = abs(wall.perpendicularAngle - wall2.perpendicularAngle) 
-                diffDistance = abs(wall.perpendicularDistanceRaw - wall2.perpendicularDistanceRaw) 
-                if diffAngle < 0.001 and diffDistance < 10:
-                    newWall = appendWalls(wall, wall2)
-                    newWall.amountOfDataPoints
-                    walls.append(amountOfDataPoints)
-                    #walls.del
-    #replace old walls with new walls, : somelist[:] = [tup for tup in somelist if determine(tup)]
+    isNewWall = True
+    while isNewWall == True:
+        isNewWall = False
+        for wall in walls:
+            collinearLines = [wall]
+            for wall2 in walls:
+                if wall != wall2:
+                    diffAngle = abs(wall.perpendicularRadian - wall2.perpendicularRadian) 
+                    diffDistance = abs(wall.perpendicularDistance - wall2.perpendicularDistance) 
+                    #merge threshhold
+                    if diffAngle < 0.3 and diffDistance < 45:
+                        collinearLines.append(wall2)
+            if len(collinearLines) > 1:
+                newWall = concatenateWalls(collinearLines)
+                walls[:] = [item for item in walls if not item in collinearLines]
+                walls.append(newWall)
+                isNewWall = True
+                break
+    return walls
+        
+def concatenateWalls(collinearLines):
+    smallestIndex = 1000
+    biggestIndex = 0
+    amountOfDataPoints = 0
+    for line in collinearLines:
+        if line.index1 < smallestIndex:
+            smallestIndex = line.index1
+            smallestLine = line
+        if line.index2 > biggestIndex:
+            biggestIndex = line.index2
+            biggestLine = line
+        amountOfDataPoints += line.amountOfDataPoints
+    perpendicularRadian, perpendicularDistanceRaw = calculatePerpendicularLine(smallestLine.x1Raw, 
+        smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw)
+    newWall = extractedLine(smallestLine.x1, smallestLine.y1, biggestLine.x2, biggestLine.y2, smallestLine.x1Raw, 
+        smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw, smallestIndex, biggestIndex, 
+        amountOfDataPoints, perpendicularDistanceRaw, perpendicularRadian)
+    return newWall    
     
 #super class which can be inherited to use constructor parameter names as class variable names
 class AutoInit(type):
@@ -153,7 +174,7 @@ class splitAndMerge():
                 missingDataCount+=1
 
         #threshhold for detecting new corner point (in mm)
-        if largestDistance > 30:
+        if largestDistance > 10:
             # # test purpose - draw largest distance line in red
             # self.lidarVisualiser.plotLargestDistance(indexLargestDistance)
             

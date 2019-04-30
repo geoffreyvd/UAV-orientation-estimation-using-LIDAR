@@ -4,7 +4,7 @@
 from plot import plotLidar
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
-from splitAndMerge import splitAndMerge
+from splitAndMerge import splitAndMerge, mergeCollinearlines
 from mockLIDAR import URGMocker, READ_FROM_SERIAL, READ_FROM_FILE
 from lidarVisualiser import lidarVisualiser
 from lidarAndCanvasConfig import lidarAndCanvasConfig
@@ -86,11 +86,10 @@ class URGPlotter():
                 i = scandata[lastValidPoint]
 
             extractedLines = self.splitAndMerge.extractLinesFrom2dDatapoints(scandata, firstValidPoint, lastValidPoint)
-            #TODO merge lines
-            #The routine uses a standard statistical method, called Chi2- test, to compute a Mahalanobis distance between each pair
-            # of line segments based on already computed covariance matrices of line parameters. If 2 line segments have statistical
-            # distance less than a threshold, they are merged. T
-            walls = self.splitAndMerge.extractWallsFromLines(extractedLines)
+            print("walls befor emerge: {}".format(len(extractedLines)))
+            mergedLines = mergeCollinearlines(extractedLines)
+            print("walls after merge: {}".format(len(mergedLines)))
+            walls = self.splitAndMerge.extractWallsFromLines(mergedLines)
 
             # linear regression didnt seem to be necessary
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
@@ -103,7 +102,7 @@ class URGPlotter():
             self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
-            if lengthList % 600 == 0 and lengthList> 0:
+            if lengthList % 300 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
@@ -147,6 +146,8 @@ class URGPlotter():
                 #print("yaw angle: {}, last index: {}".format(yaw0*180/pi, walls[0].index2))
                 yaw0Degree = yaw0*180/pi
                 yawDegree = yaw*180/pi
+                if abs(yaw0Degree) > 0.5:
+                    yaw0Degree = yaw0Degree
                 self.listOfYaw.append(yaw0Degree)
                 self.listOfImuYaw.append(yawDegree)
                 if self.listOfYawSum != []:
