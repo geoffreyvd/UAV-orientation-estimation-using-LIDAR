@@ -111,7 +111,8 @@ class extractedLine(metaclass=AutoInit):
     refinedRadian = 0
     refinedDistance = 0
 
-    def __init__(self, x1, y1, x2, y2, x1Raw, y1Raw, x2Raw, y2Raw, index1, index2, amountOfDataPoints, perpendicularDistance, perpendicularRadian):
+    def __init__(self, x1, y1, x2, y2, x1Raw, y1Raw, x2Raw, y2Raw, index1, index2, 
+    amountOfDataPoints, perpendicularDistance, perpendicularRadian):
         pass
 
 class splitAndMerge():

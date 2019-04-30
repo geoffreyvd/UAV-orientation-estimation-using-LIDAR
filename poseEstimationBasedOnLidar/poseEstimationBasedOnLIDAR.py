@@ -57,6 +57,7 @@ class URGPlotter():
         showCount = self.lidarVisualiser.getShowCount()
         print('%d scans    in %f sec = %f scans/sec' % (scanCount, elapsed_sec, scanCount/elapsed_sec))
         print('%d displays in %f sec = %f displays/sec' % (showCount, elapsed_sec, showCount/elapsed_sec))
+        self.mocker.exitLidar()
         self.pixhawk4.closeParallelProcess()
         exit(0)
 
@@ -91,7 +92,8 @@ class URGPlotter():
             # distance less than a threshold, they are merged. T
             walls = self.splitAndMerge.extractWallsFromLines(extractedLines)
 
-            walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
+            # linear regression didnt seem to be necessary
+            # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
 
             self.calculateYaw(walls)
 

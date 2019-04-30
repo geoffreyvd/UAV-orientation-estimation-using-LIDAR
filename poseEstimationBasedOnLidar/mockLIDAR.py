@@ -97,7 +97,11 @@ class URGMocker():
                 sleep(.01) # pause a tiny amount to allow following check to work
                 if not self.running:
                     break
-        
+
+    def exitLidar(self):
+        if self.readFrom == READ_FROM_SERIAL:
+            del self.lidar
+            
 # Instantiate
 if __name__ == '__main__':
     
