@@ -107,7 +107,7 @@ class URGPlotter():
             self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
-            if lengthList % 900 == 0 and lengthList> 0:
+            if lengthList % 300 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
@@ -140,7 +140,7 @@ class URGPlotter():
                         smallestYawDiff = yawDiff
                         smallestYawDiffIndex = j
                 #take the smallest difference, and if smaller than a certain threshhold, the 2 walls match
-                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.01:
+                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.23:
                     #threshold based on IMU uncertainty/error after 100ms + lidar error
                     wallMapping.append((i, smallestYawDiffIndex))
             if len(wallMapping) != 0:
@@ -162,11 +162,11 @@ class URGPlotter():
                 self.lidarYawEnd = lidarYaw
                 averageLidarYawDegree = averageLidarYaw*180/pi
                 imuYawDegree = yaw*180/pi
-                if abs(lidarYawDegree) > 0.5:
-                    print(wallMapping)
-                    print(self.previousWalls[wallMapping[0][0]].amountOfDataPoints)
-                    print(walls[wallMapping[0][1]].amountOfDataPoints)
-                    sleep(10)
+                # if abs(lidarYawDegree) > 0.5:
+                #     print(wallMapping)
+                #     print(self.previousWalls[wallMapping[0][0]].amountOfDataPoints)
+                #     print(walls[wallMapping[0][1]].amountOfDataPoints)
+                #     sleep(10)
                 self.listOfYaw.append(lidarYawDegree)
                 self.listOfAverageYaw.append(averageLidarYawDegree)
                 self.listOfImuYaw.append(imuYawDegree)
