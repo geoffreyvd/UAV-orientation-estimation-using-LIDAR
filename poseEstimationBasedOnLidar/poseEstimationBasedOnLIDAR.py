@@ -27,10 +27,15 @@ class URGPlotter():
         #test
         self.listOfYaw = []
         self.listOfYawSum = []
+        self.listOfAverageYaw = []
+        self.listOfAverageYawSum = []
         self.listOfYawLR =[]
         self.listOfImuYaw = []
         self.listOfImuYawSum = []
         self.lidarErrors = 0
+
+        self.lidarYawStart = 999
+        self.lidarYawEnd = 0
 
         self.config = lidarAndCanvasConfig()
         self.mocker = URGMocker(READ_FROM_SERIAL)
@@ -102,12 +107,13 @@ class URGPlotter():
             self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
-            if lengthList % 300 == 0 and lengthList> 0:
+            if lengthList % 900 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
                 print("times lidar couldnt provide yaw: {}".format(self.lidarErrors))
-                plotLidar(self.listOfYawSum, self.listOfImuYawSum)
+                print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
+                plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
                 self._quit()
         
     def calculateYaw(self, walls):
@@ -137,24 +143,40 @@ class URGPlotter():
                 if smallestYawDiffIndex != -1 and smallestYawDiff < 0.01:
                     #threshold based on IMU uncertainty/error after 100ms + lidar error
                     wallMapping.append((i, smallestYawDiffIndex))
-            averageYaw = 0
-            for map in wallMapping:
-                averageYaw += walls[map[1]].perpendicularRadian -self.previousWalls[map[0]].perpendicularRadian
             if len(wallMapping) != 0:
-                averageYaw /= len(wallMapping)
-                yaw0 = walls[wallMapping[0][1]].perpendicularRadian - self.previousWalls[wallMapping[0][0]].perpendicularRadian
-                #print("yaw angle: {}, last index: {}".format(yaw0*180/pi, walls[0].index2))
-                yaw0Degree = yaw0*180/pi
-                yawDegree = yaw*180/pi
-                if abs(yaw0Degree) > 0.5:
-                    yaw0Degree = yaw0Degree
-                self.listOfYaw.append(yaw0Degree)
-                self.listOfImuYaw.append(yawDegree)
+                averageLidarYaw = 0
+                totalPoints = 0
+                for map in wallMapping:
+                    totalPoints += walls[map[1]].amountOfDataPoints + self.previousWalls[map[0]].amountOfDataPoints
+                pointsScale = 1.0/ totalPoints
+                for map in wallMapping:
+                    mappedWallDiff = walls[map[1]].perpendicularRadian -self.previousWalls[map[0]].perpendicularRadian
+                    points = walls[map[1]].amountOfDataPoints + self.previousWalls[map[0]].amountOfDataPoints
+                    averageLidarYaw += mappedWallDiff * pointsScale * points
+                averageLidarYaw /= len(wallMapping)
+                lidarYaw = walls[wallMapping[0][1]].perpendicularRadian - self.previousWalls[wallMapping[0][0]].perpendicularRadian
+                #print("yaw angle: {}, last index: {}".format(lidarYaw*180/pi, walls[0].index2))
+                lidarYawDegree = lidarYaw*180/pi
+                if self.lidarYawStart == 999:
+                    self.lidarYawStart = lidarYaw
+                self.lidarYawEnd = lidarYaw
+                averageLidarYawDegree = averageLidarYaw*180/pi
+                imuYawDegree = yaw*180/pi
+                if abs(lidarYawDegree) > 0.5:
+                    print(wallMapping)
+                    print(self.previousWalls[wallMapping[0][0]].amountOfDataPoints)
+                    print(walls[wallMapping[0][1]].amountOfDataPoints)
+                    sleep(10)
+                self.listOfYaw.append(lidarYawDegree)
+                self.listOfAverageYaw.append(averageLidarYawDegree)
+                self.listOfImuYaw.append(imuYawDegree)
                 if self.listOfYawSum != []:
-                    self.listOfYawSum.append(self.listOfYawSum[-1] + yaw0Degree)
-                    self.listOfImuYawSum.append(self.listOfImuYawSum[-1] + yawDegree)
+                    self.listOfYawSum.append(self.listOfYawSum[-1] + lidarYawDegree)
+                    self.listOfAverageYawSum.append(self.listOfAverageYawSum[-1] + averageLidarYawDegree)
+                    self.listOfImuYawSum.append(self.listOfImuYawSum[-1] + imuYawDegree)
                 else:
                     self.listOfYawSum.append(sum(self.listOfYaw))
+                    self.listOfAverageYawSum.append(sum(self.listOfAverageYaw))
                     self.listOfImuYawSum.append(sum(self.listOfImuYaw))
                 # #refinedradian has to be defined for different mapping aswell
                 # yawLR = self.previousWalls[0].refinedRadian - walls[0].refinedRadian

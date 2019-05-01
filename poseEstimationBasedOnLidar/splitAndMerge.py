@@ -70,7 +70,7 @@ def mergeCollinearlines(walls):
                     diffAngle = abs(wall.perpendicularRadian - wall2.perpendicularRadian) 
                     diffDistance = abs(wall.perpendicularDistance - wall2.perpendicularDistance) 
                     #merge threshhold
-                    if diffAngle < 0.3 and diffDistance < 45:
+                    if diffAngle < 0.16 and diffDistance < 34:
                         collinearLines.append(wall2)
             if len(collinearLines) > 1:
                 newWall = concatenateWalls(collinearLines)
@@ -174,7 +174,7 @@ class splitAndMerge():
                 missingDataCount+=1
 
         #threshhold for detecting new corner point (in mm)
-        if largestDistance > 10:
+        if largestDistance > 19:
             # # test purpose - draw largest distance line in red
             # self.lidarVisualiser.plotLargestDistance(indexLargestDistance)
             
