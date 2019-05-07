@@ -36,11 +36,14 @@ class URGPlotter():
 
         self.lidarYawStart = 999
         self.lidarYawEnd = 0
+        self.changedWallCount = 0
+        self.minimumScanDistance = 250 #mm
 
         self.config = lidarAndCanvasConfig()
         self.mocker = URGMocker(READ_FROM_SERIAL)
         self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
         self.lidarVisualiser = lidarVisualiser(self.config)
+        # self.lidarVisualiser2 = lidarVisualiser(self.config)
         self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
         
     def run(self):
@@ -64,6 +67,7 @@ class URGPlotter():
         print('%d displays in %f sec = %f displays/sec' % (showCount, elapsed_sec, showCount/elapsed_sec))
         self.mocker.exitLidar()
         self.pixhawk4.closeParallelProcess()
+        plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
         exit(0)
 
     def signal_handler(self, sig, frame):
@@ -76,6 +80,9 @@ class URGPlotter():
         if scandata:
             lengthList = len(self.listOfYaw)
             startTimeIteration = time()
+            for i, point in enumerate(scandata):
+                if point < self.minimumScanDistance:
+                    scandata[i] =0
             # print("[{}], {}".format(startTimeIteration - self.start_sec, lengthList))
             self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
             i = 0
@@ -107,13 +114,13 @@ class URGPlotter():
             self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
-            if lengthList % 300 == 0 and lengthList> 0:
+            if lengthList % 900 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
-                print("times lidar couldnt provide yaw: {}".format(self.lidarErrors))
                 print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
-                plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
+                print("times lidar couldnt provide yaw: {}".format(self.lidarErrors))
+                print("changedwallsCount: {}".format(self.changedWallCount))
                 self._quit()
         
     def calculateYaw(self, walls):
@@ -126,35 +133,51 @@ class URGPlotter():
             wallMapping = []
             estimatedWalls = []
             #estimated walls = add yaw to all walls from previous iteraiton
-            for i in range(0, 6):
+            for i in range(0, len(self.previousWalls)):
                 estimatedWalls.append(self.previousWalls[i].perpendicularRadian + yaw)
                 # TODO distance + imu translation
                 smallestYawDiff = 9999
                 smallestYawDiffIndex = -1
                 #print("walls len: {}, previousWAlls len: {}, i: {}".format(len(walls), len(self.previousWalls), i))
                 #TODO will break if less than 6 walls have bene found
-                for j in range(0, 6):
+                for j in range(0, len(walls)):
                     #substract current wall angles and distances from estimated wall angles and distances
                     yawDiff = abs(estimatedWalls[i] - walls[j].perpendicularRadian)
                     if yawDiff < smallestYawDiff:
                         smallestYawDiff = yawDiff
                         smallestYawDiffIndex = j
                 #take the smallest difference, and if smaller than a certain threshhold, the 2 walls match
-                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.23:
+                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.054:
                     #threshold based on IMU uncertainty/error after 100ms + lidar error
                     wallMapping.append((i, smallestYawDiffIndex))
             if len(wallMapping) != 0:
                 averageLidarYaw = 0
-                totalPoints = 0
+                totalScore = 0
+                biggestScore =0
+                biggestMatchedWall = (0,0)
                 for map in wallMapping:
-                    totalPoints += walls[map[1]].amountOfDataPoints + self.previousWalls[map[0]].amountOfDataPoints
-                pointsScale = 1.0/ totalPoints
+                    score = walls[map[1]].score + self.previousWalls[map[0]].score
+                    if score > biggestScore:
+                        biggestScore = score
+                        biggestMatchedWall = map
+                    totalScore += score
+                scoreScale = 1.0/ totalScore
                 for map in wallMapping:
-                    mappedWallDiff = walls[map[1]].perpendicularRadian -self.previousWalls[map[0]].perpendicularRadian
-                    points = walls[map[1]].amountOfDataPoints + self.previousWalls[map[0]].amountOfDataPoints
-                    averageLidarYaw += mappedWallDiff * pointsScale * points
+                    mappedWallYawDiff = walls[map[1]].perpendicularRadian -self.previousWalls[map[0]].perpendicularRadian
+                    score = walls[map[1]].score + self.previousWalls[map[0]].score
+                    averageLidarYaw += mappedWallYawDiff * scoreScale * score
                 averageLidarYaw /= len(wallMapping)
-                lidarYaw = walls[wallMapping[0][1]].perpendicularRadian - self.previousWalls[wallMapping[0][0]].perpendicularRadian
+                lidarYaw = walls[biggestMatchedWall[1]].perpendicularRadian - self.previousWalls[biggestMatchedWall[0]].perpendicularRadian
+                if biggestMatchedWall != (0,0):
+                    print("changed wall!: {}".format(wallMapping[0]))
+                    print("size of wall0 {} size of wall x {}: ".format(self.previousWalls[biggestMatchedWall[0]].amountOfDataPoints, walls[biggestMatchedWall[1]].amountOfDataPoints))
+                    print("angle wall0 {}".format(self.previousWalls[biggestMatchedWall[0]].perpendicularRadian))
+                    print("size of new wall 0 {}".format(walls[0].amountOfDataPoints))
+                    print("angle wall 0 {}".format(walls[0].perpendicularRadian))
+                    for map in wallMapping:
+                        if map[1] == 0:
+                            print("size of new wall 0 {}".format(walls[map[1]].amountOfDataPoints))
+                    self.changedWallCount += 1
                 #print("yaw angle: {}, last index: {}".format(lidarYaw*180/pi, walls[0].index2))
                 lidarYawDegree = lidarYaw*180/pi
                 if self.lidarYawStart == 999:
@@ -162,11 +185,10 @@ class URGPlotter():
                 self.lidarYawEnd = lidarYaw
                 averageLidarYawDegree = averageLidarYaw*180/pi
                 imuYawDegree = yaw*180/pi
-                # if abs(lidarYawDegree) > 0.5:
-                #     print(wallMapping)
-                #     print(self.previousWalls[wallMapping[0][0]].amountOfDataPoints)
-                #     print(walls[wallMapping[0][1]].amountOfDataPoints)
-                #     sleep(10)
+                if abs(lidarYawDegree) > 0.5:
+                    print(wallMapping)
+                    print(self.previousWalls[wallMapping[0][0]].amountOfDataPoints)
+                    print(walls[wallMapping[0][1]].amountOfDataPoints)
                 self.listOfYaw.append(lidarYawDegree)
                 self.listOfAverageYaw.append(averageLidarYawDegree)
                 self.listOfImuYaw.append(imuYawDegree)

@@ -47,10 +47,10 @@ def plotImu():
 def plotLidar(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.ion()
     y = np.asarray(listOfYaw)
-    y1 = np.asarray(listOfAverageYaw)
+    # y1 = np.asarray(listOfAverageYaw)
     y2 = np.asarray(listOfYawImu)
     plt.plot(y)
-    plt.plot(y1)
+    # plt.plot(y1)
     plt.plot(y2)
     plt.draw()
     plt.pause(1000)

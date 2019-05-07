@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from inspect import getargspec
-from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
+from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt, pow
+from operator import attrgetter, methodcaller
 
 def calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw):
         diffX = x2Raw - x1Raw
@@ -56,6 +57,9 @@ def linearRegression(listX, listY):
     perpendicularDistance = xMean * cos(perpendicularRadian) + yMean * sin(perpendicularRadian)
     return perpendicularRadian, perpendicularDistance
 
+def assignScoreToWall(amountOfDataPoints, length):
+    return (pow(amountOfDataPoints, 1.3) * pow((round(length/10) + 1), 1.3))
+
 def matchWallsWithNewIteration():
     return 0
 
@@ -70,7 +74,7 @@ def mergeCollinearlines(walls):
                     diffAngle = abs(wall.perpendicularRadian - wall2.perpendicularRadian) 
                     diffDistance = abs(wall.perpendicularDistance - wall2.perpendicularDistance) 
                     #merge threshhold
-                    if diffAngle < 0.16 and diffDistance < 34:
+                    if diffAngle < 0.033 and diffDistance < 33:
                         collinearLines.append(wall2)
             if len(collinearLines) > 1:
                 newWall = concatenateWalls(collinearLines)
@@ -94,9 +98,11 @@ def concatenateWalls(collinearLines):
         amountOfDataPoints += line.amountOfDataPoints
     perpendicularRadian, perpendicularDistanceRaw = calculatePerpendicularLine(smallestLine.x1Raw, 
         smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw)
+    length = sqrt(pow(biggestLine.x2Raw-smallestLine.x1Raw, 2) + pow(biggestLine.y2Raw -smallestLine.y1Raw, 2))
+    score = assignScoreToWall(amountOfDataPoints, length)
     newWall = extractedLine(smallestLine.x1, smallestLine.y1, biggestLine.x2, biggestLine.y2, smallestLine.x1Raw, 
         smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw, smallestIndex, biggestIndex, 
-        amountOfDataPoints, perpendicularDistanceRaw, perpendicularRadian)
+        amountOfDataPoints, perpendicularDistanceRaw, perpendicularRadian, length, score)
     return newWall    
     
 #super class which can be inherited to use constructor parameter names as class variable names
@@ -133,13 +139,14 @@ class extractedLine(metaclass=AutoInit):
     refinedDistance = 0
 
     def __init__(self, x1, y1, x2, y2, x1Raw, y1Raw, x2Raw, y2Raw, index1, index2, 
-    amountOfDataPoints, perpendicularDistance, perpendicularRadian):
+    amountOfDataPoints, perpendicularDistance, perpendicularRadian, length, score):
         pass
 
 class splitAndMerge():
     def __init__(self, config, lidarvisualiser):
         self.config = config
         self.lidarVisualiser = lidarvisualiser
+        self.thresholdScore = 130000
     
     # lets calculate the corner points - split and merge
     def extractLinesFrom2dDatapoints(self, scandata, first, last):
@@ -174,7 +181,7 @@ class splitAndMerge():
                 missingDataCount+=1
 
         #threshhold for detecting new corner point (in mm)
-        if largestDistance > 19:
+        if largestDistance > 53:
             # # test purpose - draw largest distance line in red
             # self.lidarVisualiser.plotLargestDistance(indexLargestDistance)
             
@@ -183,14 +190,17 @@ class splitAndMerge():
             listOfWalls.extend(self.extractLinesFrom2dDatapoints(scandata, indexLargestDistance, last))
         else:
             #(x1,y1,x2,y2,index1,index2,amountOfDataPoints,perpendicularDistance, perpendicularRadian)
-            listOfWalls = [extractedLine(firstPointX, firstPointY, lastPointX, lastPointY, x1Raw, y1Raw, x2Raw, y2Raw, first, 
-                last, last-first-missingDataCount, perpendicularDistanceRaw, perpendicularRadian)]
+            length = sqrt(pow(x2Raw-x1Raw, 2) + pow(y2Raw -y1Raw, 2))
+            amountOfDataPoints = last-first-missingDataCount+1
+            score = assignScoreToWall(amountOfDataPoints, length)
+            listOfWalls = [extractedLine(firstPointX, firstPointY, lastPointX, lastPointY, x1Raw, y1Raw, x2Raw, y2Raw,
+                first, last, amountOfDataPoints, perpendicularDistanceRaw, perpendicularRadian, length, score)]
         return listOfWalls
 
     def extractWallsFromLines(self, extractedLines):
-        #TODO best filter for wall selection: one that has the most data points, and variance is small!
-        extractedLines.sort(reverse=True, key=lambda x : x.amountOfDataPoints)
-        self.lidarVisualiser.plotWalls(extractedLines)        
+        #TODO best filter for wall selection: one that has the most data points, and length is long
+        extractedLines = sorted((l for l in extractedLines if l.score > self.thresholdScore), reverse=True, key=attrgetter('score')) 
+        self.lidarVisualiser.plotWalls(extractedLines)
         return extractedLines
     
     def refineWallParameters(self, walls, scandata):
