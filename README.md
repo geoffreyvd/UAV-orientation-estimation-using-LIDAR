@@ -2,11 +2,13 @@
 Forked from BreezyLidar - Simple, efficient, Lidar access for Linux computers in Python and C++
 Pose estimation build on top
 
-#Installation:
+![gif](var/output.gif)
+
+# Installation:
 First install breezyLidar
 then configure static usb ports: lidar to /dev/URG04LX and pixhawk4 to /dev/pixhawk4 check info below
 
-#Run:
+# Run:
 first run px4.launch:
 roslaunch mavros px4.launch fcu_url:=/dev/pixhawk4:57600  gcs_url:=udp://@localhost:14550
 check if u see imu data incoming:
@@ -16,7 +18,7 @@ then run:
 
 NOTE, if this programs returns breezylidar connect error, then just retry 2 times
 
-#static usb info:
+# static usb info:
     static usb refernce for pixhawp4:
         idVendor: 26ac
         idProduct: 0032
