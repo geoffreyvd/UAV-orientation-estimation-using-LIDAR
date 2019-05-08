@@ -1,12 +1,8 @@
+#Indoor UAV Pose estimation based on a 2D lidar, IMU and a 1D lidar. By using novel and efficient algorithms.
 Forked from BreezyLidar - Simple, efficient, Lidar access for Linux computers in Python and C++
-===========
 Pose estimation build on top
 
 ![](var/output.gif)
-
-
-
-#Indoor UAV Pose estimation based on a 2D lidar, IMU and a 1D lidar. By using novel and efficient algorithms.
 
 #Installation:
 First install breezyLidar
