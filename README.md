@@ -2,7 +2,7 @@
 Forked from BreezyLidar - Simple, efficient, Lidar access for Linux computers in Python and C++
 Pose estimation build on top
 
-![gif](var/output.gif)
+![](var/output.gif)
 
 # Installation:
 First install breezyLidar
