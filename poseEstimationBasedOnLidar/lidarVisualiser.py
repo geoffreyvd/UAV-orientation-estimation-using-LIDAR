@@ -53,6 +53,11 @@ class lidarVisualiser(tk.Frame):
                     rowspan = 1, columnspan = 1,\
                     sticky = tk.W+tk.E+tk.N+tk.S)
 
+        self.textYaw =  self.canvas.create_text(self.config.half_canvas_pix, self.config.half_canvas_pix *2 - 250,
+        fill="white", font="Times 20 bold", text=0)
+        self.textYawImu =  self.canvas.create_text(self.config.half_canvas_pix, self.config.half_canvas_pix *2 - 220,
+        fill="white", font="Times 20 bold", text=0)
+
         self.perpendicularLineCount = 0
         self.extractedLinesCountDebug = 0
         # No scanlines initially                             
@@ -155,6 +160,10 @@ class lidarVisualiser(tk.Frame):
                         lastPointY)]    
         [self.canvas.itemconfig(self.linesExtracted[self.extractedLinesCountDebug], fill=DISPLAY_SCAN_LINE_COLOR_EXTRACTED_LINES)]
 
+    def displayYaw(self, yaw, yawImu):
+        self.canvas.itemconfigure(self.textYaw, text="lidar yaw: {}".format(yaw))
+        self.canvas.itemconfigure(self.textYawImu, text="imu yaw: {}".format(yawImu))
+
     def plotLargestDistance(self, indexLargestDistance):
         [self.canvas.itemconfig(self.linesLidar[indexLargestDistance], fill=DISPLAY_SCAN_LINE_COLOR_LARGEST_DISTANCE)]
     
@@ -164,7 +173,7 @@ class lidarVisualiser(tk.Frame):
         return pointX, pointY
 
     def updateGUI(self):
-        self.extractedLinesCountDebug = 0 #root of evil - side functionality
+        self.extractedLinesCountDebug = 0 #root of all evil - side functionality
         self.update()
     
     def getShowCount(self):

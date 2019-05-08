@@ -114,7 +114,7 @@ class URGPlotter():
             self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
-            if lengthList % 900 == 0 and lengthList> 0:
+            if lengthList % 2400 == 0 and lengthList> 0:
                 #print("linear regression, average yaw error: {}".format(sum(self.listOfYawLR)/lengthList))
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
@@ -200,6 +200,7 @@ class URGPlotter():
                     self.listOfYawSum.append(sum(self.listOfYaw))
                     self.listOfAverageYawSum.append(sum(self.listOfAverageYaw))
                     self.listOfImuYawSum.append(sum(self.listOfImuYaw))
+                self.lidarVisualiser.displayYaw(self.listOfYawSum[-1], self.listOfImuYawSum[-1])
                 # #refinedradian has to be defined for different mapping aswell
                 # yawLR = self.previousWalls[0].refinedRadian - walls[0].refinedRadian
                 # print("yaw angle LR: {}".format(yawLR*180/pi))

@@ -58,7 +58,7 @@ def linearRegression(listX, listY):
     return perpendicularRadian, perpendicularDistance
 
 def assignScoreToWall(amountOfDataPoints, length):
-    return (pow(amountOfDataPoints, 1.3) * pow((round(length/10) + 1), 1.3))
+    return (pow(amountOfDataPoints, 1.3) * pow((round(length/20) + 1), 1.3))
 
 def matchWallsWithNewIteration():
     return 0
@@ -146,7 +146,7 @@ class splitAndMerge():
     def __init__(self, config, lidarvisualiser):
         self.config = config
         self.lidarVisualiser = lidarvisualiser
-        self.thresholdScore = 130000
+        self.thresholdScore = 35000
     
     # lets calculate the corner points - split and merge
     def extractLinesFrom2dDatapoints(self, scandata, first, last):
@@ -181,7 +181,7 @@ class splitAndMerge():
                 missingDataCount+=1
 
         #threshhold for detecting new corner point (in mm)
-        if largestDistance > 53:
+        if largestDistance >30:
             # # test purpose - draw largest distance line in red
             # self.lidarVisualiser.plotLargestDistance(indexLargestDistance)
             
