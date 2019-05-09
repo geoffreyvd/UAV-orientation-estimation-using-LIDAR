@@ -74,7 +74,7 @@ def mergeCollinearlines(walls):
                     diffAngle = abs(wall.perpendicularRadian - wall2.perpendicularRadian) 
                     diffDistance = abs(wall.perpendicularDistance - wall2.perpendicularDistance) 
                     #merge threshhold
-                    if diffAngle < 0.033 and diffDistance < 33:
+                    if diffAngle < 0.15 and diffDistance < 39:
                         collinearLines.append(wall2)
             if len(collinearLines) > 1:
                 newWall = concatenateWalls(collinearLines)
@@ -199,6 +199,8 @@ class splitAndMerge():
 
     def extractWallsFromLines(self, extractedLines):
         #TODO best filter for wall selection: one that has the most data points, and length is long
+        for w in extractedLines:
+            self.lidarVisualiser.plotSplitLine(w.x1, w.y1, w.x2, w.y2)
         extractedLines = sorted((l for l in extractedLines if l.score > self.thresholdScore), reverse=True, key=attrgetter('score')) 
         self.lidarVisualiser.plotWalls(extractedLines)
         return extractedLines

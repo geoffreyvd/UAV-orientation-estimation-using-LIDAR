@@ -39,9 +39,10 @@ class URGPlotter():
         self.changedWallCount = 0
         self.minimumScanDistance = 250 #mm
 
+        self.changedWall = True
         self.config = lidarAndCanvasConfig()
         self.mocker = URGMocker(READ_FROM_SERIAL)
-        self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
+        self.pixhawk4 = pixhawk(READ_FROM_FILE)
         self.lidarVisualiser = lidarVisualiser(self.config)
         # self.lidarVisualiser2 = lidarVisualiser(self.config)
         self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
@@ -102,6 +103,7 @@ class URGPlotter():
             mergedLines = mergeCollinearlines(extractedLines)
             print("walls after merge: {}".format(len(mergedLines)))
             walls = self.splitAndMerge.extractWallsFromLines(mergedLines)
+            self.lidarVisualiser.updateGUI()
 
             # linear regression didnt seem to be necessary
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
@@ -111,7 +113,6 @@ class URGPlotter():
             #TODO match corner points to previous iteration (by lookign at similar distance and angle)
 
             self.previousWalls = walls
-            self.lidarVisualiser.updateGUI()
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
             if lengthList % 2400 == 0 and lengthList> 0:
@@ -157,6 +158,8 @@ class URGPlotter():
                 biggestMatchedWall = (0,0)
                 for map in wallMapping:
                     score = walls[map[1]].score + self.previousWalls[map[0]].score
+                    if map[0]==0:
+                        score *= score
                     if score > biggestScore:
                         biggestScore = score
                         biggestMatchedWall = map
@@ -169,6 +172,7 @@ class URGPlotter():
                 averageLidarYaw /= len(wallMapping)
                 lidarYaw = walls[biggestMatchedWall[1]].perpendicularRadian - self.previousWalls[biggestMatchedWall[0]].perpendicularRadian
                 if biggestMatchedWall != (0,0):
+                    print("biggestmatchedwall: {}".format(biggestMatchedWall))
                     print("changed wall!: {}".format(wallMapping[0]))
                     print("size of wall0 {} size of wall x {}: ".format(self.previousWalls[biggestMatchedWall[0]].amountOfDataPoints, walls[biggestMatchedWall[1]].amountOfDataPoints))
                     print("angle wall0 {}".format(self.previousWalls[biggestMatchedWall[0]].perpendicularRadian))
@@ -178,6 +182,11 @@ class URGPlotter():
                         if map[1] == 0:
                             print("size of new wall 0 {}".format(walls[map[1]].amountOfDataPoints))
                     self.changedWallCount += 1
+                if biggestMatchedWall[1] != 0:
+                    temp=walls[0]
+                    walls[0]= walls[biggestMatchedWall[1]]
+                    walls[biggestMatchedWall[1]] = temp
+
                 #print("yaw angle: {}, last index: {}".format(lidarYaw*180/pi, walls[0].index2))
                 lidarYawDegree = lidarYaw*180/pi
                 if self.lidarYawStart == 999:

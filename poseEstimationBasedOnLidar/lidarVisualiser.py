@@ -88,6 +88,18 @@ class lidarVisualiser(tk.Frame):
                          self.config.sin[k] * 10,\
                          self.config.cos[k] * 10)
                          for k in range(URG_SCAN_SIZE)]
+        self.walls = [self.canvas.create_line(\
+                         0, \
+                         0, \
+                         self.config.sin[k] * 10,\
+                         self.config.cos[k] * 10)
+                         for k in range(URG_SCAN_SIZE)]
+        self.walls1 = [self.canvas1.create_line(\
+                         0, \
+                         0, \
+                         self.config.sin[k] * 10,\
+                         self.config.cos[k] * 10)
+                         for k in range(URG_SCAN_SIZE)]
         self.perpendicularLines = [self.canvas.create_line(\
                          0, \
                          0, \
@@ -123,21 +135,26 @@ class lidarVisualiser(tk.Frame):
             for k in range(len(scandata))]
 
 
-    def plotWalls(self, walls):        
+    def plotWalls(self, walls):
+        for idx, w in enumerate(self.walls):
+            self.canvas.coords(self.walls[idx], 0, 0, 0, 0)            
+
         for idx, w in enumerate(walls):
-            self.canvas.coords(self.linesExtracted[idx], w.x1, w.y1, w.x2, w.y2)
+            self.canvas.coords(self.walls[idx], w.x1, w.y1, w.x2, w.y2)
             widthWall = 1 + 5/(idx +1)
-            self.canvas.itemconfig(self.linesExtracted[idx], fill=WALL_COLORS[idx], width=widthWall) 
+            self.canvas.itemconfig(self.walls[idx], fill=WALL_COLORS[idx], width=widthWall) 
         self.plotPreviousWalls()
         self.previousWalls = walls
     
     def plotPreviousWalls(self):
         if self.previousWalls != []:
-            walls = self.previousWalls     
+            walls = self.previousWalls    
+            for idx, w in enumerate(self.walls1):
+                self.canvas1.coords(self.walls1[idx], 0, 0, 0, 0)   
             for idx, w in enumerate(walls):
-                self.canvas1.coords(self.linesExtracted1[idx], w.x1, w.y1, w.x2, w.y2)
+                self.canvas1.coords(self.walls1[idx], w.x1, w.y1, w.x2, w.y2)
                 widthWall = 1 + 5/(idx +1)
-                self.canvas1.itemconfig(self.linesExtracted1[idx], fill=WALL_COLORS[idx], width=widthWall)
+                self.canvas1.itemconfig(self.walls1[idx], fill=WALL_COLORS[idx], width=widthWall)
 
     def plotPerpendicularLines(self, perpendicularDistanceRaw, perpendicularRadian):
         perpendicularDistance = perpendicularDistanceRaw * self.config.renderScale
