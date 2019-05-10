@@ -3,34 +3,44 @@ from inspect import getargspec
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt, pow
 from operator import attrgetter, methodcaller
 
-def calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw):
-        diffX = x2Raw - x1Raw
-        diffY = y2Raw - y1Raw
-        slope = 0
-        if diffX != 0:
-            #step 1 see papier for uitwerking - calculate slope
-            slope = diffY / diffX
-            #step 2 - calculate perpendicular angle from origon to line
-            perpendicularRadian = -atan(slope)
-            #step 3 calculate perpendicular distance from origon to line
-            perpendicularDistance = (y1Raw-slope*x1Raw)/sqrt(slope*slope+1)
-            if perpendicularDistance < 0:
-                perpendicularDistance = abs(perpendicularDistance)
-                if perpendicularRadian > 0:
-                    perpendicularRadian = -pi + perpendicularRadian
-                else:
-                    perpendicularRadian = pi + perpendicularRadian
+#thresholds
+LINES_MINIMUM_DATAPOINTS = 9
 
-        elif diffY > 0:
-            #als de slope infinite is (de twee punt coordinaten staan op dezelfde x waarde)
-            perpendicularDistance = x2Raw
-            perpendicularRadian = 0
-        else:
-            perpendicularDistance = x2Raw
-            perpendicularRadian = pi
-        # print("perpendicular Angle: {}, Distance: {}".format(perpendicularAngle, perpendicularDistance))
-        # print("slope: {}".format(slope))
-        return perpendicularRadian, perpendicularDistance
+def filterLines(lines):
+    goodLines = []
+    for line in lines:
+        if line.amountOfDataPoints > LINES_MINIMUM_DATAPOINTS:
+            goodLines.append(line)
+    return goodLines
+
+def calculatePerpendicularLine(x1Raw, y1Raw, x2Raw, y2Raw):
+    diffX = x2Raw - x1Raw
+    diffY = y2Raw - y1Raw
+    slope = 0
+    if diffX != 0:
+        #step 1 see papier for uitwerking - calculate slope
+        slope = diffY / diffX
+        #step 2 - calculate perpendicular angle from origon to line
+        perpendicularRadian = -atan(slope)
+        #step 3 calculate perpendicular distance from origon to line
+        perpendicularDistance = (y1Raw-slope*x1Raw)/sqrt(slope*slope+1)
+        if perpendicularDistance < 0:
+            perpendicularDistance = abs(perpendicularDistance)
+            if perpendicularRadian > 0:
+                perpendicularRadian = -pi + perpendicularRadian
+            else:
+                perpendicularRadian = pi + perpendicularRadian
+
+    elif diffY > 0:
+        #als de slope infinite is (de twee punt coordinaten staan op dezelfde x waarde)
+        perpendicularDistance = x2Raw
+        perpendicularRadian = 0
+    else:
+        perpendicularDistance = x2Raw
+        perpendicularRadian = pi
+    # print("perpendicular Angle: {}, Distance: {}".format(perpendicularAngle, perpendicularDistance))
+    # print("slope: {}".format(slope))
+    return perpendicularRadian, perpendicularDistance
 
 #total least fitting
 def linearRegression(listX, listY):
@@ -65,8 +75,10 @@ def matchWallsWithNewIteration():
 
 def mergeCollinearlines(walls):
     isNewWall = True
+    backupWalls = walls
     while isNewWall == True:
         isNewWall = False
+        walls = backupWalls
         for wall in walls:
             collinearLines = [wall]
             for wall2 in walls:
@@ -74,34 +86,45 @@ def mergeCollinearlines(walls):
                     diffAngle = abs(wall.perpendicularRadian - wall2.perpendicularRadian) 
                     diffDistance = abs(wall.perpendicularDistance - wall2.perpendicularDistance) 
                     #merge threshhold
-                    if diffAngle < 0.15 and diffDistance < 39:
+                    if diffAngle < 0.09 and diffDistance < 85:
                         collinearLines.append(wall2)
             if len(collinearLines) > 1:
                 newWall = concatenateWalls(collinearLines)
-                walls[:] = [item for item in walls if not item in collinearLines]
-                walls.append(newWall)
+                backupWalls[:] = [item for item in walls if not item in collinearLines]
+                backupWalls.insert(0, newWall)
                 isNewWall = True
                 break
     return walls
         
 def concatenateWalls(collinearLines):
-    smallestIndex = 1000
-    biggestIndex = 0
     amountOfDataPoints = 0
-    for line in collinearLines:
-        if line.index1 < smallestIndex:
-            smallestIndex = line.index1
-            smallestLine = line
-        if line.index2 > biggestIndex:
-            biggestIndex = line.index2
-            biggestLine = line
+    biggestDistance = 0
+    smallestLine = 0
+    #calculate distance between each line
+    for idx, line in enumerate(collinearLines):
+        for idx2, line2 in enumerate(collinearLines):
+            if idx != idx2:
+                distance = sqrt(pow(line2.x2Raw-line.x1Raw, 2) + pow(line2.y2Raw -line.y1Raw, 2))
+                if distance > biggestDistance:
+                    biggestDistance = distance
+                    smallestLine = line
+                    biggestLine = line2
         amountOfDataPoints += line.amountOfDataPoints
+
+    #edge case where distance is exactly 0
+    if smallestLine == 0:
+        biggestLine = 0
+        for line in collinearLines:
+            biggestScore = 0
+            if line.score > biggestScore:
+                biggestLine = line
+            return biggestLine
     perpendicularRadian, perpendicularDistanceRaw = calculatePerpendicularLine(smallestLine.x1Raw, 
         smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw)
-    length = sqrt(pow(biggestLine.x2Raw-smallestLine.x1Raw, 2) + pow(biggestLine.y2Raw -smallestLine.y1Raw, 2))
+    length = biggestDistance
     score = assignScoreToWall(amountOfDataPoints, length)
     newWall = extractedLine(smallestLine.x1, smallestLine.y1, biggestLine.x2, biggestLine.y2, smallestLine.x1Raw, 
-        smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw, smallestIndex, biggestIndex, 
+        smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw, smallestLine.index1, biggestLine.index2, 
         amountOfDataPoints, perpendicularDistanceRaw, perpendicularRadian, length, score)
     return newWall    
     
