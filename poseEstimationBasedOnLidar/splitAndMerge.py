@@ -5,6 +5,10 @@ from operator import attrgetter, methodcaller
 
 #thresholds
 LINES_MINIMUM_DATAPOINTS = 9
+MERGE_MAXIMUM_DISTANCE = 85
+MERGE_MAXIMUM_ANGLE = 0.09 #radians
+SCORE_MINIMUM = 35000
+SPLIT_MAXIMUM_DISTANCE_TO_LINE = 30
 
 def filterLines(lines):
     goodLines = []
@@ -86,7 +90,7 @@ def mergeCollinearlines(walls):
                     diffAngle = abs(wall.perpendicularRadian - wall2.perpendicularRadian) 
                     diffDistance = abs(wall.perpendicularDistance - wall2.perpendicularDistance) 
                     #merge threshhold
-                    if diffAngle < 0.09 and diffDistance < 85:
+                    if diffAngle < MERGE_MAXIMUM_ANGLE and diffDistance < MERGE_MAXIMUM_DISTANCE:
                         collinearLines.append(wall2)
             if len(collinearLines) > 1:
                 newWall = concatenateWalls(collinearLines)
@@ -169,7 +173,6 @@ class splitAndMerge():
     def __init__(self, config, lidarvisualiser):
         self.config = config
         self.lidarVisualiser = lidarvisualiser
-        self.thresholdScore = 35000
     
     # lets calculate the corner points - split and merge
     def extractLinesFrom2dDatapoints(self, scandata, first, last):
@@ -204,7 +207,7 @@ class splitAndMerge():
                 missingDataCount+=1
 
         #threshhold for detecting new corner point (in mm)
-        if largestDistance >30:
+        if largestDistance > SPLIT_MAXIMUM_DISTANCE_TO_LINE:
             # # test purpose - draw largest distance line in red
             # self.lidarVisualiser.plotLargestDistance(indexLargestDistance)
             
@@ -224,7 +227,7 @@ class splitAndMerge():
         #TODO best filter for wall selection: one that has the most data points, and length is long
         for w in extractedLines:
             self.lidarVisualiser.plotSplitLine(w.x1, w.y1, w.x2, w.y2)
-        extractedLines = sorted((l for l in extractedLines if l.score > self.thresholdScore), reverse=True, key=attrgetter('score')) 
+        extractedLines = sorted((l for l in extractedLines if l.score > SCORE_MINIMUM), reverse=True, key=attrgetter('score')) 
         self.lidarVisualiser.plotWalls(extractedLines)
         return extractedLines
     

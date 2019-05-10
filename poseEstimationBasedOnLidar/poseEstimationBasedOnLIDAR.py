@@ -14,6 +14,8 @@ import signal
 import sys
 # TODO, use numpy instead of python list
 
+MATCH_WALLS_MAXIMUM_ANGLE = 0.09 #radians
+
 class URGPlotter():
     '''
     UGRPlotter extends tk.Frame to plot Lidar scans.
@@ -144,7 +146,7 @@ class URGPlotter():
                         smallestYawDiff = yawDiff
                         smallestYawDiffIndex = j
                 #take the smallest difference, and if smaller than a certain threshhold, the 2 walls match
-                if smallestYawDiffIndex != -1 and smallestYawDiff < 0.09:
+                if smallestYawDiffIndex != -1 and smallestYawDiff < MATCH_WALLS_MAXIMUM_ANGLE:
                     #threshold based on IMU uncertainty/error after 100ms + lidar error
                     wallMapping.append((i, smallestYawDiffIndex))
 
