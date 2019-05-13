@@ -101,6 +101,7 @@ class URGPlotter():
         self.positionY = 0
         self.listOfX = []
         self.listOfY = []
+        self.firstDistance = 0
 
         self.changedWall = True
         self.config = lidarAndCanvasConfig()
@@ -184,6 +185,8 @@ class URGPlotter():
                 self.listOfX.append(self.positionX)
                 self.listOfY.append(self.positionY)
                 print("x: {}, y: {}".format(self.positionX, self.positionY))
+            if self.firstDistance == 0:
+                self.firstDistance = walls[0].perpendicularDistance
 
             self.previousWalls = walls
             #sleep(0) #test purpose
@@ -194,6 +197,7 @@ class URGPlotter():
                 print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
                 print("times lidar couldnt provide yaw: {}".format(self.lidarErrors))
                 print("changedwallsCount: {}".format(self.changedWallCount))
+                print("distance between walls: {}".format(self.firstDistance - walls[0].perpendicularDistance))
                 self._quit()
     
     #TODO refact to splitandmerge class
