@@ -62,6 +62,7 @@ class URGMocker():
         exit(0)
      
     def getScan(self):
+        self.scanCount += 1
         if self.readFrom == READ_FROM_FILE:
             scandata = []
             i=0
@@ -76,7 +77,6 @@ class URGMocker():
             self.scanIndex = i + 2   
             return scandata
         else:
-            self.scanCount += 1
             return self.lidar.getScan()
 
     def getCount(self):

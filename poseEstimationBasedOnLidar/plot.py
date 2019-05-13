@@ -44,7 +44,7 @@ def plotImu():
                         init_func=init, interval = 1000)
     plt.show()
 
-def plotLidar(listOfYaw, listOfAverageYaw, listOfYawImu):
+def plotYaw(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.ion()
     y = np.asarray(listOfYaw)
     # y1 = np.asarray(listOfAverageYaw)
@@ -53,8 +53,18 @@ def plotLidar(listOfYaw, listOfAverageYaw, listOfYawImu):
     # plt.plot(y1)
     plt.plot(y2)
     plt.draw()
+    plt.clf()
+
+def plotPosition(x, y):
+    plt.ion()
+    x = np.asarray(x)
+    y = np.asarray(y)
+    plt.plot(x)
+    plt.plot(y)
+    plt.draw()
     plt.pause(1000)
     plt.clf()
+    
 
 if __name__ == '__main__':
     
