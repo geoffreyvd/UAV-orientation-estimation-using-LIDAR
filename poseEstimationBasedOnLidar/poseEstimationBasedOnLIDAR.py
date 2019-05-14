@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 #apt-get install python3-tk
-from plot import plotLidar
+import numpy as np
+from plot import plotLidar, plotYaw
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
-from splitAndMerge import splitAndMerge, mergeCollinearlines, filterLines
+from splitAndMerge import SplitAndMerge, mergeCollinearlines, filterLines
 from mockLIDAR import URGMocker, READ_FROM_SERIAL, READ_FROM_FILE
 from lidarVisualiser import lidarVisualiser
 from lidarAndCanvasConfig import lidarAndCanvasConfig
@@ -12,6 +13,7 @@ from pixhawkWrapper import pixhawk
 from operator import attrgetter, methodcaller
 import signal
 import sys
+from kalmanFilter import KF
 # TODO, use numpy instead of python list
 
 MATCH_WALLS_MAXIMUM_ANGLE = 0.09 #radians
@@ -41,13 +43,15 @@ class URGPlotter():
         self.changedWallCount = 0
         self.minimumScanDistance = 250 #mm
 
+        self.listOfImuTest = []
+
         self.changedWall = True
         self.config = lidarAndCanvasConfig()
-        self.mocker = URGMocker(READ_FROM_SERIAL)
-        self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
+        self.mocker = URGMocker(READ_FROM_FILE)
+        self.pixhawk4 = pixhawk(READ_FROM_FILE)
         self.lidarVisualiser = lidarVisualiser(self.config)
-        # self.lidarVisualiser2 = lidarVisualiser(self.config)
-        self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
+        self.splitAndMerge = SplitAndMerge(self.config, self.lidarVisualiser)
+        self.kf = KF()
         
     def run(self):
         '''
@@ -70,7 +74,8 @@ class URGPlotter():
         print('%d displays in %f sec = %f displays/sec' % (showCount, elapsed_sec, showCount/elapsed_sec))
         self.mocker.exitLidar()
         self.pixhawk4.closeParallelProcess()
-        plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
+        # plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
+        plotYaw(self.listOfYawSum, self.listOfImuTest, self.kf.getEstimatedStates())
         exit(0)
 
     def signal_handler(self, sig, frame):
@@ -114,12 +119,17 @@ class URGPlotter():
             # linear regression didnt seem to be necessary
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
 
-            self.calculateYaw(walls)
+            for i in range(0,5):
+                u = np.random.normal(0, 0.001, 1)
+                self.listOfImuTest.append(u)
+                x = self.kf.predict(u)
+
+            lidarYaw = self.calculateYaw(walls)
+            if lidarYaw != 0:
+                print("estimated state: {}".format(self.kf.update(lidarYaw)))
 
             self.previousWalls = walls
-            #sleep(0) #test purpose
-            #print(time() - startTimeIteration)
-            if lengthList % 600 == 0 and lengthList> 0:
+            if lengthList % 100 == 0 and lengthList> 0:
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
                 print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
@@ -205,9 +215,11 @@ class URGPlotter():
                     self.listOfImuYawSum.append(sum(self.listOfImuYaw))
                 self.lidarVisualiser.displayYaw(self.listOfYawSum[-1], self.listOfImuYawSum[-1])
                 print("wall count: {}, wallMatches: {}, lidaryaw: {}, imu yaw: {}".format(len(walls), len(wallMapping), self.listOfYawSum[-1], self.listOfImuYawSum[-1]))
+                return self.listOfYawSum[-1]
             else:
                 print("no mapping found!! unable to provide yaw estimate")
                 self.lidarErrors+=1
+                return 0
                 
     # daarna mogelijk:
 	# -aan de hand van VICON ofzo de positie estimate doorgeven aan de FCU (zodat hij zich zel kan corrigeren)

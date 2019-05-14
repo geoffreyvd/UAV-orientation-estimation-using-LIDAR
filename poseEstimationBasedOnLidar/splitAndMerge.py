@@ -169,7 +169,7 @@ class extractedLine(metaclass=AutoInit):
     amountOfDataPoints, perpendicularDistance, perpendicularRadian, length, score):
         pass
 
-class splitAndMerge():
+class SplitAndMerge():
     def __init__(self, config, lidarvisualiser):
         self.config = config
         self.lidarVisualiser = lidarvisualiser

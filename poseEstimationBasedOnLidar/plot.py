@@ -56,6 +56,18 @@ def plotLidar(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.pause(1000)
     plt.clf()
 
+def plotYaw(yawMeasurementsLidar, yawMeasurementsImu, yawMeasurementsEstimate):
+    plt.ion()
+    y = np.asarray(yawMeasurementsLidar)
+    y1 = np.asarray(yawMeasurementsImu)
+    y2 = np.asarray(yawMeasurementsEstimate)
+    plt.plot(list(range(0, 606, 6)), y)
+    plt.plot(list(range(0, 510)), y1)
+    plt.plot(list(range(0, 612)), y2)
+    plt.draw()
+    plt.pause(100)
+    plt.clf()    
+
 if __name__ == '__main__':
     
     plotImu()
