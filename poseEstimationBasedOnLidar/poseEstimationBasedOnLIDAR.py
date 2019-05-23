@@ -30,30 +30,28 @@ def determinePosition(walls, previousWalls, wallMapping, yawAngle):
         wall = walls[map[1]]
         previousWall = previousWalls[map[0]]
         if (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) < PERPENDICULAR_WALL_THRESHOLD_ANGLE) or 
-            (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % 180) < PERPENDICULAR_WALL_THRESHOLD_ANGLE)):
+            (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % pi) < PERPENDICULAR_WALL_THRESHOLD_ANGLE)):
             #longtitudinal
             x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
-            if previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0:
-                wall.xDisplacement = x
-                wall.yDisplacement = y
-            else:
+            wall.xDisplacement = x
+            wall.yDisplacement = y
+            if not (previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0):
                 x -= previousWall.xDisplacement
                 y -= previousWall.yDisplacement
                 measurementFromWallsLongtitudinalCount += 1
                 measurementFromWallsLongtitudinalX += x 
                 measurementFromWallsLongtitudinalY += y 
-        elif ((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % 90) < PERPENDICULAR_WALL_THRESHOLD_ANGLE:
+        elif ((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % pi/2) < PERPENDICULAR_WALL_THRESHOLD_ANGLE:
             #lateral
             x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
-            if previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0:
-                wall.xDisplacement = x
-                wall.yDisplacement = y
-            else:
+            wall.xDisplacement = x
+            wall.yDisplacement = y
+            if not (previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0):
                 x -= previousWall.xDisplacement
                 y -= previousWall.yDisplacement
-                measurementFromWallsLongtitudinalCount += 1
-                measurementFromWallsLongtitudinalX += x 
-                measurementFromWallsLongtitudinalY += y 
+                measurementFromWallsLateralCount += 1
+                measurementFromWallsLateralX += x 
+                measurementFromWallsLateralY += y 
     x = 0
     y = 0
     if measurementFromWallsLateralCount > 0:
@@ -64,9 +62,21 @@ def determinePosition(walls, previousWalls, wallMapping, yawAngle):
         y += measurementFromWallsLongtitudinalY / measurementFromWallsLongtitudinalCount
     return x,y
 
+def determinePositionOneWall(walls, previousWalls, wallMapping):
+        wall = walls[wallMapping[0][1]]
+        previousWall = previousWalls[wallMapping[0][0]]
+        x, y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, 0)
+        wall.xDisplacement = x
+        wall.yDisplacement = y
+        if previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0:
+            return 0,0
+        x -= previousWall.xDisplacement
+        y -= previousWall.yDisplacement
+        return x,y
+
 #from the point of view of the starting point (so we take the yaw since then and distract it)
 def calculatePositionDisplacement(perpendicularRadian, perpendicularDistance, yawAngle):
-    WallAngleFromStartPoint = perpendicularRadian - yawAngle
+    WallAngleFromStartPoint = perpendicularRadian - yawAngle # radian - degree
     xDisplacement = sin(WallAngleFromStartPoint) * -perpendicularDistance
     yDisplacement = cos(WallAngleFromStartPoint) * -perpendicularDistance
     return xDisplacement, yDisplacement
@@ -101,12 +111,13 @@ class URGPlotter():
         self.positionY = 0
         self.listOfX = []
         self.listOfY = []
-        self.firstDistance = 0
+        self.firstX = 0
+        self.firstY = 0
 
         self.changedWall = True
         self.config = lidarAndCanvasConfig()
         self.mocker = URGMocker(READ_FROM_SERIAL)
-        self.pixhawk4 = pixhawk(READ_FROM_FILE)
+        self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
         self.lidarVisualiser = lidarVisualiser(self.config)
         # self.lidarVisualiser2 = lidarVisualiser(self.config)
         self.splitAndMerge = splitAndMerge(self.config, self.lidarVisualiser)
@@ -178,15 +189,19 @@ class URGPlotter():
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
 
             self.calculateYaw(walls)
+            if self.firstX == 0:
+                self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
             if self.listOfYawSum != [] and walls != []:
-                x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1] * pi / 180)
+                x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
+                # x, y = calculatePositionDisplacement(perpendicularRadian, perpendicularDistance, yawAngle)
                 self.positionX += x
                 self.positionY += y
                 self.listOfX.append(self.positionX)
                 self.listOfY.append(self.positionY)
                 print("x: {}, y: {}".format(self.positionX, self.positionY))
-            if self.firstDistance == 0:
-                self.firstDistance = walls[0].perpendicularDistance
+                # print("distance to first wall changed: {}".format(self.firstDistance - walls[0].perpendicularDistance))
+                print("{}".format(calculatePositionDisplacement(walls[0].perpendicularRadian, 
+                    walls[0].perpendicularDistance, 0)))
 
             self.previousWalls = walls
             #sleep(0) #test purpose
@@ -197,7 +212,9 @@ class URGPlotter():
                 print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
                 print("times lidar couldnt provide yaw: {}".format(self.lidarErrors))
                 print("changedwallsCount: {}".format(self.changedWallCount))
-                print("distance between walls: {}".format(self.firstDistance - walls[0].perpendicularDistance))
+                x,y = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
+
+                print("distacen x: {}, distance y: {}".format(self.firstX - x, self.firstY -y))
                 self._quit()
     
     #TODO refact to splitandmerge class
@@ -250,7 +267,7 @@ class URGPlotter():
                 if biggestMatchedWall[0] != 0:
                     self.changedWallCount += 1
                 
-                # update wall list if the previous biggest wall with the extra 20 percent got to be the biggest again
+                # update wall list if the previous biggest wall with the extra 200 percent got to be the biggest again
                 if biggestMatchedWall[1] != 0:
                     temp=walls[0]
                     walls[0]= walls[biggestMatchedWall[1]]
@@ -258,10 +275,10 @@ class URGPlotter():
                     #change wallmaping according to swap
                     for idx, map in enumerate(wallMapping):
                         if map == biggestMatchedWall:
-                            wallMapping[idx][1] = 0
+                            wallMapping[idx] = (0,0)
                         elif map[1] == 0:
-                            wallMapping[idx][1] = biggestMatchedWall[1]
-                    biggestMatchedWall[1] = 0
+                            wallMapping[idx] = (map[0], biggestMatchedWall[1])
+                    biggestMatchedWall = (0,0)
                 self.wallMapping = wallMapping            
 
                 #add yaw data to list to plot
