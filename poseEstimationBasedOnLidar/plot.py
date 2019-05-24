@@ -58,6 +58,7 @@ def plotYaw(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.ylabel('yaw (degrees)')
     plt.title('Yaw degree over time')
     plt.draw()
+    plt.pause(1000)
     plt.clf()
 
 def plotPosition(x, y):
@@ -70,7 +71,7 @@ def plotPosition(x, y):
     plt.xlabel('x position (mm)')
     plt.ylabel('y position (mm)')
     plt.title('x and y position coordinates') 
-    plt..axis('equal')
+    plt.axis('equal')
     plt.draw()
     plt.pause(1000)
     plt.clf()

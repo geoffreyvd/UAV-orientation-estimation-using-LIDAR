@@ -143,8 +143,8 @@ class URGPlotter():
         print('%d displays in %f sec = %f displays/sec' % (showCount, elapsed_sec, showCount/elapsed_sec))
         self.mocker.exitLidar()
         self.pixhawk4.closeParallelProcess()
-        # plotYaw(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
-        plotPosition(self.listOfX, self.listOfY)
+        plotYaw(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
+        # plotPosition(self.listOfX, self.listOfY)
         exit(0)
 
     def signal_handler(self, sig, frame):
@@ -189,20 +189,23 @@ class URGPlotter():
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
 
             self.calculateYaw(walls)
-            if self.firstX == 0:
-                self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
-            if self.listOfYawSum != [] and walls != []:
-                x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
-                self.positionX += x
-                self.positionY += y
-                self.listOfX.append(self.positionX)
-                self.listOfY.append(self.positionY)
-                print("x: {}, y: {}".format(self.positionX, self.positionY))
+
+            #caculate position
+            if self.wallMapping != []:
+                if self.firstX == 0:
+                    self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
+                if self.listOfYawSum != [] and walls != []:
+                    x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
+                    self.positionX += x
+                    self.positionY += y
+                    self.listOfX.append(self.positionX)
+                    self.listOfY.append(self.positionY)
+                    print("x: {}, y: {}".format(self.positionX, self.positionY))
 
             self.previousWalls = walls
             #sleep(0) #test purpose
             #print(time() - startTimeIteration)
-            if lengthList % 300 == 0 and lengthList> 0:
+            if lengthList % 6000 == 0 and lengthList> 0:
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
                 print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
@@ -303,6 +306,7 @@ class URGPlotter():
                 print("wall count: {}, wallMatches: {}, lidaryaw: {}, imu yaw: {}".format(len(walls), len(wallMapping), self.listOfYawSum[-1], self.listOfImuYawSum[-1]))
             else:
                 print("no mapping found!! unable to provide yaw estimate")
+                self.wallMapping = []
                 self.lidarErrors+=1
 
     # daarna mogelijk:
