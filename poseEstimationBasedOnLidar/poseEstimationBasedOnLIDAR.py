@@ -15,7 +15,7 @@ import sys
 # TODO, use numpy instead of python list
 
 MATCH_WALLS_MAXIMUM_ANGLE = 0.09 #radians
-PERPENDICULAR_WALL_THRESHOLD_ANGLE = 0.0000001 #radians #for now jsut the biggestwall
+PERPENDICULAR_WALL_THRESHOLD_ANGLE = 0.20 #radians #for now jsut the biggestwall
 
 def determinePosition(walls, previousWalls, wallMapping, yawAngle):
     biggestMatchedWall = walls[wallMapping[0][1]]
@@ -41,7 +41,7 @@ def determinePosition(walls, previousWalls, wallMapping, yawAngle):
                 measurementFromWallsLongtitudinalCount += 1
                 measurementFromWallsLongtitudinalX += x 
                 measurementFromWallsLongtitudinalY += y 
-        elif ((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % pi/2) < PERPENDICULAR_WALL_THRESHOLD_ANGLE:
+        elif ((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % (pi/2)) < PERPENDICULAR_WALL_THRESHOLD_ANGLE:
             #lateral
             x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
             wall.xDisplacement = x
@@ -193,15 +193,11 @@ class URGPlotter():
                 self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
             if self.listOfYawSum != [] and walls != []:
                 x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
-                # x, y = calculatePositionDisplacement(perpendicularRadian, perpendicularDistance, yawAngle)
                 self.positionX += x
                 self.positionY += y
                 self.listOfX.append(self.positionX)
                 self.listOfY.append(self.positionY)
                 print("x: {}, y: {}".format(self.positionX, self.positionY))
-                # print("distance to first wall changed: {}".format(self.firstDistance - walls[0].perpendicularDistance))
-                print("{}".format(calculatePositionDisplacement(walls[0].perpendicularRadian, 
-                    walls[0].perpendicularDistance, 0)))
 
             self.previousWalls = walls
             #sleep(0) #test purpose

@@ -42,6 +42,7 @@ def plotImu():
 
     ani = FuncAnimation(fig, update, frames=240,
                         init_func=init, interval = 1000)
+    plt.grid()
     plt.show()
 
 def plotYaw(listOfYaw, listOfAverageYaw, listOfYawImu):
@@ -52,6 +53,10 @@ def plotYaw(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.plot(y)
     # plt.plot(y1)
     plt.plot(y2)
+    plt.grid()
+    plt.xlabel('time (0,1s)')
+    plt.ylabel('yaw (degrees)')
+    plt.title('Yaw degree over time')
     plt.draw()
     plt.clf()
 
@@ -59,13 +64,21 @@ def plotPosition(x, y):
     plt.ion()
     x = np.asarray(x)
     y = np.asarray(y)
-    plt.plot(x)
-    plt.plot(y)
+    plt.plot(x, y)
+    # plt.plot(y)
+    plt.grid()
+    plt.xlabel('x position (mm)')
+    plt.ylabel('y position (mm)')
+    plt.title('x and y position coordinates') 
+    plt..axis('equal')
     plt.draw()
     plt.pause(1000)
     plt.clf()
     
 
 if __name__ == '__main__':
-    
-    plotImu()
+    x = [0,1,2,0,1,2]
+    y = [1,2,3,4,5, 6]
+    plotPosition(x, y)
+
+    # plotImu()
