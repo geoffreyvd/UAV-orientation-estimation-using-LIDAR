@@ -2,7 +2,7 @@
 
 #apt-get install python3-tk
 import numpy as np
-from plot import plotLidar, plotYaw
+from plot import plotLidar, plotYaw, plotPosition
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
 from time import time, sleep, ctime
 from splitAndMerge import SplitAndMerge, mergeCollinearlines, filterLines
@@ -17,7 +17,72 @@ from kalmanFilter import KF
 # TODO, use numpy instead of python list
 
 MATCH_WALLS_MAXIMUM_ANGLE = 0.09 #radians
+PERPENDICULAR_WALL_THRESHOLD_ANGLE = 0.20 #radians #for now jsut the biggestwall
 
+def determinePosition(walls, previousWalls, wallMapping, yawAngle):
+    biggestMatchedWall = walls[wallMapping[0][1]]
+    measurementFromWallsLateralCount = 0
+    measurementFromWallsLateralX = 0
+    measurementFromWallsLateralY = 0
+    measurementFromWallsLongtitudinalCount = 0
+    measurementFromWallsLongtitudinalX = 0
+    measurementFromWallsLongtitudinalY = 0
+
+    for idx, map in enumerate(wallMapping):
+        wall = walls[map[1]]
+        previousWall = previousWalls[map[0]]
+        if (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) < PERPENDICULAR_WALL_THRESHOLD_ANGLE) or 
+            (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % pi) < PERPENDICULAR_WALL_THRESHOLD_ANGLE)):
+            #longtitudinal
+            x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
+            wall.xDisplacement = x
+            wall.yDisplacement = y
+            if not (previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0):
+                x -= previousWall.xDisplacement
+                y -= previousWall.yDisplacement
+                measurementFromWallsLongtitudinalCount += 1
+                measurementFromWallsLongtitudinalX += x 
+                measurementFromWallsLongtitudinalY += y 
+        elif ((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % (pi/2)) < PERPENDICULAR_WALL_THRESHOLD_ANGLE:
+            #lateral
+            x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
+            wall.xDisplacement = x
+            wall.yDisplacement = y
+            if not (previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0):
+                x -= previousWall.xDisplacement
+                y -= previousWall.yDisplacement
+                measurementFromWallsLateralCount += 1
+                measurementFromWallsLateralX += x 
+                measurementFromWallsLateralY += y 
+    x = 0
+    y = 0
+    if measurementFromWallsLateralCount > 0:
+        x = measurementFromWallsLateralX / measurementFromWallsLateralCount
+        y = measurementFromWallsLateralY / measurementFromWallsLateralCount
+    if measurementFromWallsLongtitudinalCount > 0:    
+        x += measurementFromWallsLongtitudinalX / measurementFromWallsLongtitudinalCount
+        y += measurementFromWallsLongtitudinalY / measurementFromWallsLongtitudinalCount
+    return x,y
+
+def determinePositionOneWall(walls, previousWalls, wallMapping):
+        wall = walls[wallMapping[0][1]]
+        previousWall = previousWalls[wallMapping[0][0]]
+        x, y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, 0)
+        wall.xDisplacement = x
+        wall.yDisplacement = y
+        if previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0:
+            return 0,0
+        x -= previousWall.xDisplacement
+        y -= previousWall.yDisplacement
+        return x,y
+
+#from the point of view of the starting point (so we take the yaw since then and distract it)
+def calculatePositionDisplacement(perpendicularRadian, perpendicularDistance, yawAngle):
+    WallAngleFromStartPoint = perpendicularRadian - yawAngle # radian - degree
+    xDisplacement = sin(WallAngleFromStartPoint) * -perpendicularDistance
+    yDisplacement = cos(WallAngleFromStartPoint) * -perpendicularDistance
+    return xDisplacement, yDisplacement
+    
 class URGPlotter():
     '''
     UGRPlotter extends tk.Frame to plot Lidar scans.
@@ -42,13 +107,21 @@ class URGPlotter():
         self.lidarYawEnd = 0
         self.changedWallCount = 0
         self.minimumScanDistance = 250 #mm
+        self.wallMapping = []
+
+        self.positionX = 0
+        self.positionY = 0
+        self.listOfX = []
+        self.listOfY = []
+        self.firstX = 0
+        self.firstY = 0
 
         self.listOfImuTest = []
 
         self.changedWall = True
         self.config = lidarAndCanvasConfig()
-        self.mocker = URGMocker(READ_FROM_FILE)
-        self.pixhawk4 = pixhawk(READ_FROM_FILE)
+        self.mocker = URGMocker(READ_FROM_SERIAL)
+        self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
         self.lidarVisualiser = lidarVisualiser(self.config)
         self.splitAndMerge = SplitAndMerge(self.config, self.lidarVisualiser)
         self.kf = KF()
@@ -75,7 +148,9 @@ class URGPlotter():
         self.mocker.exitLidar()
         self.pixhawk4.closeParallelProcess()
         # plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
-        plotYaw(self.listOfYawSum, self.listOfImuTest, self.kf.getEstimatedStates())
+        plotYaw(self.listOfYawSum, self.listOfImuYawSum, self.kf.getEstimatedStates(), self.kf.getEstimatedStatesBias())
+        # plotYaw(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
+        # plotPosition(self.listOfX, self.listOfY)
         exit(0)
 
     def signal_handler(self, sig, frame):
@@ -119,30 +194,46 @@ class URGPlotter():
             # linear regression didnt seem to be necessary
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
 
-            for i in range(0,5):
-                u = np.random.normal(0, 0.001, 1)
-                self.listOfImuTest.append(u)
-                x = self.kf.predict(u)
-
-            lidarYaw = self.calculateYaw(walls)
+            imuYaw = self.pixhawk4.getImuYawDisplacement()
+            listOfImuYawRatesBetweenLidarScan = self.pixhawk4.getimuYawRates()
+            for zAngularVelocity in listOfImuYawRatesBetweenLidarScan:
+                x = self.kf.predict(zAngularVelocity)
+            # x = self.kf.predict(imuYaw) #provide angular velocity of 100ms
+            
+            lidarYaw = self.calculateYaw(walls, imuYaw)
             if lidarYaw != 0:
                 print("estimated state: {}".format(self.kf.update(lidarYaw)))
 
+            #caculate position
+            if self.wallMapping != []:
+                if self.firstX == 0:
+                    self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
+                if self.listOfYawSum != [] and walls != []:
+                    x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
+                    self.positionX += x
+                    self.positionY += y
+                    self.listOfX.append(self.positionX)
+                    self.listOfY.append(self.positionY)
+                    print("x: {}, y: {}".format(self.positionX, self.positionY))
+
             self.previousWalls = walls
-            if lengthList % 100 == 0 and lengthList> 0:
+            if lengthList % 600 == 0 and lengthList> 0:
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
                 print("yaw from wall 0 from start to end: {}".format(self.lidarYawEnd - self.lidarYawStart))
                 print("times lidar couldnt provide yaw: {}".format(self.lidarErrors))
                 print("changedwallsCount: {}".format(self.changedWallCount))
-                self._quit()
-        
-    def calculateYaw(self, walls):
-        imuYaw = self.pixhawk4.getImuYawDisplacement()
+                x,y = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
 
+                print("distacen x: {}, distance y: {}".format(self.firstX - x, self.firstY -y))
+                self._quit()
+    
+    #TODO refact to splitandmerge class
+    def calculateYaw(self, walls, imuYaw):
         if self.previousWalls is not None and imuYaw is not None:
-            wallMapping = []
+            wallMapping = [] #tuples with (previouswall, wall)
             estimatedWalls = []
+            #wall matching!
             #estimated walls = add yaw to all walls from previous iteraiton
             for i in range(0, len(self.previousWalls)):
                 estimatedWalls.append(self.previousWalls[i].perpendicularRadian + imuYaw)
@@ -185,11 +276,19 @@ class URGPlotter():
                 if biggestMatchedWall[0] != 0:
                     self.changedWallCount += 1
                 
-                # update wall list if the previous biggest wall with the extra 20 percent got to be the biggest again
+                # update wall list if the previous biggest wall with the extra 200 percent got to be the biggest again
                 if biggestMatchedWall[1] != 0:
                     temp=walls[0]
                     walls[0]= walls[biggestMatchedWall[1]]
                     walls[biggestMatchedWall[1]] = temp
+                    #change wallmaping according to swap
+                    for idx, map in enumerate(wallMapping):
+                        if map == biggestMatchedWall:
+                            wallMapping[idx] = (0,0)
+                        elif map[1] == 0:
+                            wallMapping[idx] = (map[0], biggestMatchedWall[1])
+                    biggestMatchedWall = (0,0)
+                self.wallMapping = wallMapping            
 
                 #add yaw data to list to plot
                 lidarYawDegree = lidarYaw*180/pi
@@ -218,13 +317,14 @@ class URGPlotter():
                 return self.listOfYawSum[-1]
             else:
                 print("no mapping found!! unable to provide yaw estimate")
+                self.wallMapping = []
                 self.lidarErrors+=1
                 return 0
                 
     # daarna mogelijk:
 	# -aan de hand van VICON ofzo de positie estimate doorgeven aan de FCU (zodat hij zich zel kan corrigeren)
 	# -set local position om te vliegen
-	# -set 
+	# -kalman filter
 
 # Instantiate and pop up the window
 if __name__ == '__main__':

@@ -39,6 +39,7 @@ class pixhawk():
         self.previousYaw = None
         self.orientation = None
         self.start_sec = time()
+        self.imuYawRates = []
 
         self.readFrom = readFrom
         if readFrom == READ_FROM_SERIAL:
@@ -52,9 +53,17 @@ class pixhawk():
     
     def getImuYawDisplacement(self):
         if self.readFrom == READ_FROM_SERIAL:
-            yaw = None        
+            yaw = None
+            previousYaw = None     
+            self.imuYawRates = []
             while self.pipeFromImu.poll():
                 yaw = self.pipeFromImu.recv()
+                if previousYaw != None:
+                    self.imuYawRates.append((previousYaw - yaw)*50)
+                else:
+                    if self.previousYaw is not None:
+                        self.imuYawRates.append((self.previousYaw - yaw)*50)
+                previousYaw = yaw
             if yaw is not None:
                 if self.previousYaw is not None:
                     imuYawBetweenLidarScans = yaw - self.previousYaw
@@ -63,10 +72,14 @@ class pixhawk():
                 self.previousYaw = yaw
             return None
         else:
-            return 0
+            self.imuYawRates = [0.0000001,0.0000001,0.0000001,0.0000001,0.0000001]
+            return 0.0000005
 
     def getYawSum(self):
         return self.previousYaw
+    
+    def getimuYawRates(self):
+        return self.imuYawRates
 
 if __name__ == '__main__':
     px = pixhawk()

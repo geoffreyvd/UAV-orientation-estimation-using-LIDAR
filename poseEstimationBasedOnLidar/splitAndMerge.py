@@ -162,8 +162,8 @@ class extractedLine(metaclass=AutoInit):
     '''
     line notation class
     '''
-    refinedRadian = 0
-    refinedDistance = 0
+    xDisplacement = 0
+    yDisplacement = 0
 
     def __init__(self, x1, y1, x2, y2, x1Raw, y1Raw, x2Raw, y2Raw, index1, index2, 
     amountOfDataPoints, perpendicularDistance, perpendicularRadian, length, score):
