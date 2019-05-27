@@ -56,13 +56,16 @@ class pixhawk():
             yaw = None
             previousYaw = None     
             self.imuYawRates = []
+            self.imuYaws = []
             while self.pipeFromImu.poll():
                 yaw = self.pipeFromImu.recv()
                 if previousYaw != None:
-                    self.imuYawRates.append((previousYaw - yaw)*50)
+                    self.imuYawRates.append((yaw- previousYaw)*50)
+                    self.imuYaws.append(yaw)
                 else:
                     if self.previousYaw is not None:
-                        self.imuYawRates.append((self.previousYaw - yaw)*50)
+                        self.imuYawRates.append((yaw- self.previousYaw)*50)
+                        self.imuYaws.append(yaw)
                 previousYaw = yaw
             if yaw is not None:
                 if self.previousYaw is not None:
@@ -73,13 +76,17 @@ class pixhawk():
             return None
         else:
             self.imuYawRates = [0.0000001,0.0000001,0.0000001,0.0000001,0.0000001]
+            self.imuYaws = [0.0000001,0.0000001,0.0000001,0.0000001,0.0000001]
             return 0.0000005
 
     def getYawSum(self):
         return self.previousYaw
     
-    def getimuYawRates(self):
+    def getImuYawRates(self):
         return self.imuYawRates
+
+    def getImuYaws(self):
+        return self.imuYaws
 
 if __name__ == '__main__':
     px = pixhawk()

@@ -62,16 +62,18 @@ def plotLidar(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.pause(1000)
     plt.clf()
 
-def plotYaw(yawMeasurementsLidar, yawMeasurementsImu, yawMeasurementsEstimate, bias):
+def plotYaw(yawMeasurementsLidar, yawMeasurementsImu, yawMeasurementsEstimate, bias, biascompensated):
     plt.ion()
     y = np.asarray(yawMeasurementsLidar)
     y1 = np.asarray(yawMeasurementsImu)
     y2 = np.asarray(yawMeasurementsEstimate)
     bias = np.asarray(bias)
-    plt.plot(list(range(0, (len(yawMeasurementsLidar)*6), 6)), y, label='LIDAR yaw')
-    plt.plot(list(range(0, (len(yawMeasurementsImu)*6), 6)), y1, label='IMU yaw')
+    biascompensated = np.asarray(biascompensated)
+    plt.plot(list(range(0, (len(yawMeasurementsLidar)*5), 5)), y, label='LIDAR yaw')
+    plt.plot(list(range(0, (len(yawMeasurementsImu)*5), 5)), y1, label='IMU yaw')
     plt.plot(y2, label='KF estimated yaw')
     plt.plot(bias, label='KF estimated bias')
+    plt.plot(biascompensated, label='KF estimated bias')
     legend = plt.legend(shadow=True, fontsize='x-large')
     plt.grid()
     plt.xlabel('KF iterations ')

@@ -117,6 +117,7 @@ class URGPlotter():
         self.firstY = 0
 
         self.listOfImuTest = []
+        self.imuYawBiasCompensated = []
 
         self.changedWall = True
         self.config = lidarAndCanvasConfig()
@@ -148,7 +149,7 @@ class URGPlotter():
         self.mocker.exitLidar()
         self.pixhawk4.closeParallelProcess()
         # plotLidar(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
-        plotYaw(self.listOfYawSum, self.listOfImuYawSum, self.kf.getEstimatedStates(), self.kf.getEstimatedStatesBias())
+        plotYaw(self.listOfYawSum, self.listOfImuYawSum, self.kf.getEstimatedStates(), self.kf.getEstimatedStatesBias(), self.imuYawBiasCompensated)
         # plotYaw(self.listOfYawSum, self.listOfAverageYawSum, self.listOfImuYawSum)
         # plotPosition(self.listOfX, self.listOfY)
         exit(0)
@@ -195,14 +196,22 @@ class URGPlotter():
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
 
             imuYaw = self.pixhawk4.getImuYawDisplacement()
-            listOfImuYawRatesBetweenLidarScan = self.pixhawk4.getimuYawRates()
-            for zAngularVelocity in listOfImuYawRatesBetweenLidarScan:
+            listOfImuYawRatesBetweenLidarScan = self.pixhawk4.getImuYawRates()
+            imuyaws = self.pixhawk4.getImuYaws()
+            for idx, zAngularVelocity in enumerate(listOfImuYawRatesBetweenLidarScan):
                 x = self.kf.predict(zAngularVelocity)
-            # x = self.kf.predict(imuYaw) #provide angular velocity of 100ms
+                # if self.imuYawBiasCompensated != []:
+                #     self.imuYawBiasCompensated.append(self.imuYawBiasCompensated[-1] + imuyaws[idx] - x[1])
+                # else:
+                #     self.imuYawBiasCompensated.append(imuyaws[idx] - x[1] + 0.001)
             
+            # x = self.kf.predict(imuYaw) #provide angular velocity of 100ms
             lidarYaw = self.calculateYaw(walls, imuYaw)
-            if lidarYaw != 0:
-                print("estimated state: {}".format(self.kf.update(lidarYaw)))
+            if lidarYaw != None:
+                if lidarYaw != 0:
+                    lidarYaw /=180
+                    lidarYaw *= pi
+                    print("estimated state: {}".format(self.kf.update(lidarYaw)))
 
             #caculate position
             if self.wallMapping != []:
