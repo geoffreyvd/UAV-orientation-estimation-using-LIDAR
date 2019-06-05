@@ -39,7 +39,9 @@ class pixhawk():
         self.previousYaw = None
         self.orientation = None
         self.start_sec = time()
+        self.imuYaws = []
         self.imuYawRates = []
+        self.listOfImuYawSum = [] #degrees
 
         self.readFrom = readFrom
         if readFrom == READ_FROM_SERIAL:
@@ -59,12 +61,16 @@ class pixhawk():
             self.imuYaws = []
             while self.pipeFromImu.poll():
                 yaw = self.pipeFromImu.recv()
+                self.listOfImuYawSum.append(yaw*180/pi)
                 if previousYaw != None:
                     self.imuYawRates.append((yaw- previousYaw)*50)
-                    self.imuYaws.append(yaw)
+                    self.imuYaws.append(yaw- previousYaw)
                 else:
                     if self.previousYaw is not None:
                         self.imuYawRates.append((yaw- self.previousYaw)*50)
+                        self.imuYaws.append(yaw- self.previousYaw)
+                    else:
+                        self.imuYawRates.append(yaw*50)
                         self.imuYaws.append(yaw)
                 previousYaw = yaw
             if yaw is not None:
@@ -87,6 +93,9 @@ class pixhawk():
 
     def getImuYaws(self):
         return self.imuYaws
+
+    def getImuYawSumList(self):
+        return self.listOfImuYawSum
 
 if __name__ == '__main__':
     px = pixhawk()

@@ -9,6 +9,7 @@ MERGE_MAXIMUM_DISTANCE = 85
 MERGE_MAXIMUM_ANGLE = 0.09 #radians
 SCORE_MINIMUM = 35000
 SPLIT_MAXIMUM_DISTANCE_TO_LINE = 30
+PERPENDICULAR_WALL_THRESHOLD_ANGLE = 0.20 #radians #for now jsut the biggestwall
 
 def filterLines(lines):
     goodLines = []
@@ -131,6 +132,60 @@ def concatenateWalls(collinearLines):
         smallestLine.y1Raw, biggestLine.x2Raw, biggestLine.y2Raw, smallestLine.index1, biggestLine.index2, 
         amountOfDataPoints, perpendicularDistanceRaw, perpendicularRadian, length, score)
     return newWall    
+
+def determinePosition(walls, previousWalls, wallMapping, yawAngle):
+    biggestMatchedWall = walls[wallMapping[0][1]]
+    measurementFromWallsLateralCount = 0
+    measurementFromWallsLateralX = 0
+    measurementFromWallsLateralY = 0
+    measurementFromWallsLongtitudinalCount = 0
+    measurementFromWallsLongtitudinalX = 0
+    measurementFromWallsLongtitudinalY = 0
+
+    for idx, map in enumerate(wallMapping):
+        wall = walls[map[1]]
+        previousWall = previousWalls[map[0]]
+        if (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) < PERPENDICULAR_WALL_THRESHOLD_ANGLE) or 
+            (((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % pi) < PERPENDICULAR_WALL_THRESHOLD_ANGLE)):
+            #longtitudinal
+            x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
+            wall.xDisplacement = x
+            wall.yDisplacement = y
+            if not (previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0):
+                x -= previousWall.xDisplacement
+                y -= previousWall.yDisplacement
+                measurementFromWallsLongtitudinalCount += 1
+                measurementFromWallsLongtitudinalX += x 
+                measurementFromWallsLongtitudinalY += y 
+        elif ((wall.perpendicularRadian - biggestMatchedWall.perpendicularRadian) % (pi/2)) < PERPENDICULAR_WALL_THRESHOLD_ANGLE:
+            #lateral
+            x,y = calculatePositionDisplacement(wall.perpendicularRadian, wall.perpendicularDistance, yawAngle)
+            wall.xDisplacement = x
+            wall.yDisplacement = y
+            if not (previousWall.xDisplacement == 0 and previousWall.yDisplacement == 0):
+                x -= previousWall.xDisplacement
+                y -= previousWall.yDisplacement
+                measurementFromWallsLateralCount += 1
+                measurementFromWallsLateralX += x 
+                measurementFromWallsLateralY += y 
+    x = 0
+    y = 0
+    if measurementFromWallsLateralCount > 0:
+        x = measurementFromWallsLateralX / measurementFromWallsLateralCount
+        y = measurementFromWallsLateralY / measurementFromWallsLateralCount
+    if measurementFromWallsLongtitudinalCount > 0:    
+        x += measurementFromWallsLongtitudinalX / measurementFromWallsLongtitudinalCount
+        y += measurementFromWallsLongtitudinalY / measurementFromWallsLongtitudinalCount
+    return x,y
+
+
+#from the point of view of the starting point (so we take the yaw since then and distract it)
+def calculatePositionDisplacement(perpendicularRadian, perpendicularDistance, yawAngle):
+    WallAngleFromStartPoint = perpendicularRadian - yawAngle # radian - degree
+    xDisplacement = sin(WallAngleFromStartPoint) * -perpendicularDistance
+    yDisplacement = cos(WallAngleFromStartPoint) * -perpendicularDistance
+    return xDisplacement, yDisplacement
+    
     
 #super class which can be inherited to use constructor parameter names as class variable names
 class AutoInit(type):
