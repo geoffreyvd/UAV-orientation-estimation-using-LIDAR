@@ -59,7 +59,7 @@ def plotLidar(listOfYaw, listOfAverageYaw, listOfYawImu):
     plt.ylabel('yaw (degrees)')
     plt.title('Yaw degree over time')
     plt.draw()
-    plt.pause(1000)
+    plt.pause(10000)
     plt.clf()
 
 def plotYaw(yawMeasurementsLidar, yawMeasurementsImu, yawMeasurementsEstimate, bias, biascompensated):
@@ -80,7 +80,7 @@ def plotYaw(yawMeasurementsLidar, yawMeasurementsImu, yawMeasurementsEstimate, b
     plt.ylabel('yaw (degrees)')
     plt.title('Yaw degree over iterations')
     plt.draw()
-    plt.pause(1000)
+    plt.pause(10000)
     plt.clf()    
 
 def plotPosition(x, y):
@@ -95,7 +95,7 @@ def plotPosition(x, y):
     plt.title('x and y position coordinates') 
     plt.axis('equal')
     plt.draw()
-    plt.pause(1000)
+    plt.pause(10000)
     plt.clf()
     
 

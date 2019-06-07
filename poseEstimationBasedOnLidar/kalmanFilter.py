@@ -18,16 +18,18 @@ class KF():
 
         # Define the covariance matrix (estimate uncertainty) 
         # (covariance van de begin estimate, dus als de begin yaw een sd van 3 graden heeft of 0,06 radialen:)
-        self.f.P = np.array([[0.0036,0.],[0.,0.0000001]])
+        self.f.P = np.array([[0.0036,0.],[0.,1e-5]])
+        #0.0000039
+        #bias uncertainty moet kleiner zijn dan imu uncertainty 
 
         # Now assign the measurement noise. Here the dimension is 1x1, so I can use a scalar
-        self.f.R = 0.000023788794712703 #0.08539
+        self.f.R = 0.0023788794712703 #0.08539
 
         # the control matrix, (0,02 = de predict rate van de imu) (voor nu 0,1)
         self.f.B = np.array([[0.02],[0.]]) 
 
         # Finally, I will assign the process noise. Here I will take advantage of another FilterPy library function:
-        self.f.Q = np.array([[0.0000001,0.],[0.,0.0000000]])
+        self.f.Q = np.array([[1e-6,0.],[0.,1e-8]])
         
         self.estimatedStates = []
         self.estimatedStatesBias = []

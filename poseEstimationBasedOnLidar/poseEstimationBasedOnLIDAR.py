@@ -18,7 +18,7 @@ from kalmanFilter import KF
 
 MATCH_WALLS_MAXIMUM_ANGLE = 0.09 #radians
 
-END_AFTER_ITERATIONS = 300
+END_AFTER_ITERATIONS = 6000
 
 class URGPlotter():
     '''
@@ -101,33 +101,40 @@ class URGPlotter():
         if scandata:
             lengthList = len(self.listOfYaw)
             startTimeIteration = time()
+            amountOfFalseData = 0
             for i, point in enumerate(scandata):
                 if point < self.minimumScanDistance:
                     scandata[i] =0
+                    amountOfFalseData+=1
             # print("[{}], {}".format(startTimeIteration - self.start_sec, lengthList))
             self.lidarVisualiser.plotScanDataPointsAsLines(scandata)
-            i = 0
-            firstValidPoint = -1
-            while i == 0:
-                firstValidPoint += 1
-                i = scandata[firstValidPoint]
-            
-            i = 0
-            lastValidPoint = 681
-            while i == 0:
-                lastValidPoint -= 1
-                i = scandata[lastValidPoint]
 
-            extractedLines = self.splitAndMerge.extractLinesFrom2dDatapoints(scandata, firstValidPoint, lastValidPoint)
-            extractedLines = filterLines(extractedLines)
-            #test sort before merge, so that bigger walls get merged first, might result in better results
-            extractedLines = sorted(extractedLines, reverse=True, key=attrgetter('score')) 
-            print("walls befor emerge: {}".format(len(extractedLines)))
-            mergedLines = mergeCollinearlines(extractedLines)
-            self.debugingWallsBeforeFilter = extractedLines
-            print("walls after merge: {}".format(len(mergedLines)))
-            walls = self.splitAndMerge.extractWallsFromLines(mergedLines)
-            self.lidarVisualiser.updateGUI()
+            #skip scan if scan has not enough datapoints
+            if amountOfFalseData < 630:
+                i = 0
+                firstValidPoint = -1
+                while i == 0:
+                    firstValidPoint += 1
+                    i = scandata[firstValidPoint]
+                
+                i = 0
+                lastValidPoint = 681
+                while i == 0:
+                    lastValidPoint -= 1
+                    i = scandata[lastValidPoint]
+
+                extractedLines = self.splitAndMerge.extractLinesFrom2dDatapoints(scandata, firstValidPoint, lastValidPoint)
+                extractedLines = filterLines(extractedLines)
+                #test sort before merge, so that bigger walls get merged first, might result in better results
+                extractedLines = sorted(extractedLines, reverse=True, key=attrgetter('score')) 
+                print("walls befor emerge: {}".format(len(extractedLines)))
+                mergedLines = mergeCollinearlines(extractedLines)
+                self.debugingWallsBeforeFilter = extractedLines
+                print("walls after merge: {}".format(len(mergedLines)))
+                walls = self.splitAndMerge.extractWallsFromLines(mergedLines)
+                self.lidarVisualiser.updateGUI()
+            else:
+                print("not enough datapoints")
 
             # linear regression didnt seem to be necessary
             # walls[0].refinedRadian, walls[0].refinedDistance = self.splitAndMerge.refineWallParameters(walls, scandata)
@@ -142,27 +149,33 @@ class URGPlotter():
                 else:
                     self.imuYawBiasCompensated.append(imuyaws[idx]/pi*180 + 0.02 * x[1])
             
-            # x = self.kf.predict(imuYaw) #provide angular velocity of 100ms
-            lidarYaw = self.calculateYaw(walls, imuYaw)
-            if lidarYaw != None:
-                if lidarYaw != 0:
-                    lidarYaw /=180
-                    lidarYaw *= pi
-                    print("estimated state: {}".format(self.kf.update(lidarYaw)))
+            if amountOfFalseData < 630:
+                lidarYaw = self.calculateYaw(walls, imuYaw)
+                if lidarYaw != None:    
+                    if lidarYaw != 0:
+                        lidarYaw /=180
+                        lidarYaw *= pi
+                        print("estimated state: {}".format(self.kf.update(lidarYaw)))
 
-            #caculate position
-            if self.wallMapping != []:
-                if self.firstX == 0:
-                    self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
-                if self.listOfYawSum != [] and walls != []:
-                    x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
-                    self.positionX += x
-                    self.positionY += y
-                    self.listOfX.append(self.positionX)
-                    self.listOfY.append(self.positionY)
-                    print("x: {}, y: {}".format(self.positionX, self.positionY))
+                #caculate position
+                if self.wallMapping != []:
+                    if self.firstX == 0:
+                        self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
+                    if self.listOfYawSum != [] and walls != []:
+                        x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
+                        self.positionX += x
+                        self.positionY += y
+                        self.listOfX.append(self.positionX)
+                        self.listOfY.append(self.positionY)
+                        print("x: {}, y: {}".format(self.positionX, self.positionY))
 
-            self.previousWalls = walls
+                self.previousWalls = walls
+            else:
+                self.listOfYaw.append(self.listOfYaw[-1])
+                self.listOfAverageYaw.append(self.listOfAverageYaw[-1])
+                self.listOfImuYaw.append(imuYaw)
+                self.listOfYawSum.append(self.listOfYawSum[-1])
+
             if lengthList % END_AFTER_ITERATIONS == 0 and lengthList> 0:
                 print("no linear regression, yaw (error when lidar stood still): {}".format(sum(self.listOfYaw)))
                 print("IMU yaw error: {}".format(sum(self.listOfImuYaw)))
@@ -258,6 +271,12 @@ class URGPlotter():
                 return self.listOfYawSum[-1]
             else:
                 print("no mapping found!! unable to provide yaw estimate")
+
+                self.listOfYaw.append(self.listOfYaw[-1])
+                self.listOfAverageYaw.append(self.listOfAverageYaw[-1])
+                self.listOfImuYaw.append(imuYaw)
+                self.listOfYawSum.append(self.listOfYawSum[-1])
+
                 self.wallMapping = []
                 self.lidarErrors+=1
                 return 0
