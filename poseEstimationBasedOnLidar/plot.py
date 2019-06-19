@@ -95,7 +95,7 @@ def plotPosition(x, y):
     plt.title('x and y position coordinates') 
     plt.axis('equal')
     plt.draw()
-    plt.pause(10000)
+    plt.pause(0.0001)
     plt.clf()
     
 

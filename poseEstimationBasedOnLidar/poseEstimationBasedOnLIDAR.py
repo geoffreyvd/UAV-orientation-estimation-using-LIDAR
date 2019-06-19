@@ -150,6 +150,7 @@ class URGPlotter():
                     self.imuYawBiasCompensated.append(imuyaws[idx]/pi*180 + 0.02 * x[1])
             
             if amountOfFalseData < 630:
+                #calculate yaw
                 lidarYaw = self.calculateYaw(walls, imuYaw)
                 if lidarYaw != None:    
                     if lidarYaw != 0:
@@ -168,7 +169,7 @@ class URGPlotter():
                         self.listOfX.append(self.positionX)
                         self.listOfY.append(self.positionY)
                         print("x: {}, y: {}".format(self.positionX, self.positionY))
-
+                    plotPosition(self.listOfX, self.listOfY)
                 self.previousWalls = walls
             else:
                 self.listOfYaw.append(self.listOfYaw[-1])
