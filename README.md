@@ -13,9 +13,8 @@
 
 ## Setup
 This algorithm can either be tested with a real LIDAR and Pixhawk 4 or simply be tested with pre-recorded data avaible in this repo.
-In both cases BreezyLidar has to be installed: https://github.com/simondlevy/BreezyLidar (Linux only)
 <p>
-After that go to the algorithm directory from this repo:
+Go to the algorithm directory from this repo (all contributions are stored here):
 
     cd ./poseEstimationBasedOnLidar
 
@@ -27,11 +26,18 @@ Then make sure URGmocker and pixhawk4 (lines 60 and 61) are constructed with the
 
     self.mocker = URGMocker(READ_FROM_FILE)
     self.pixhawk4 = pixhawk(READ_FROM_FILE)
+Then open mockLIDAR.py and comment line 12, like so:
+
+    #from breezylidar import URG04LX
 Then run the program. From terminal:
 
     ./poseEstimationBasedOnLidar
 
 ### B. Testing with real hardware (Hakuyo URG04LX and pixhawk)
+
+#### 0. Install BreezyLIDAR
+https://github.com/simondlevy/BreezyLidar (Linux only)
+
 #### 1. Install ROS
 http://wiki.ros.org/kinetic/Installation/Ubuntu
 I did those steps on ubuntu 16.04:
@@ -74,5 +80,12 @@ check if u see imu data incoming:
 then run:
 
     ./poseEstimationBasedOnLIDAR.py
+#### 4. Configure algorithm to listen to usb devices
+OPTIONAL: Only if you tested before with pre-configured dataset, then you have to set pixhawk and URGmocker constructor arguments back to "READ_FROM_SERIAL" in poseEstimationBasedOnLIDAR.py:
 
+    self.mocker = URGMocker(READ_FROM_SERIAL)
+    self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
+And uncomment line 12 from mockLIDAR.py:
+
+    from breezylidar import URG04LX
 NOTE, if this programs returns breezylidar connect error, then just retry 2 times
