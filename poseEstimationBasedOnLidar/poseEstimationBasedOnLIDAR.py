@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 #apt-get install python3-tk
+import rospy
 import numpy as np
 from plot import plotLidar, plotYaw, plotPosition
 from math import sin, cos, radians, atan, atan2, pi, fabs, sqrt
@@ -62,6 +63,8 @@ class URGPlotter():
         self.lidarVisualiser = lidarVisualiser(self.config)
         self.splitAndMerge = SplitAndMerge(self.config, self.lidarVisualiser)
         self.kf = KF()
+
+        self.state_sub = rospy.Subscriber('mavros/state', State, self.state_callback)
         
     def run(self):
         '''
@@ -93,6 +96,9 @@ class URGPlotter():
 
     def signal_handler(self, sig, frame):
         self._quit()
+
+    def state_callback(self, msg):
+        print('state schange: {}', format(msg))
 
     def _task(self):
         # The only thing here that has to happen is setting the lengh of the line, by setting a new endpoint for the line 
@@ -289,7 +295,7 @@ class URGPlotter():
 
 # Instantiate and pop up the window
 if __name__ == '__main__':
-    
+	rospy.init_node("obstacle_detection", anonymous=True)
     plotter = URGPlotter()
     
     plotter.run()

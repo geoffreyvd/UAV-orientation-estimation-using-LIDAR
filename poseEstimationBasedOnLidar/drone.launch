@@ -1,0 +1,4 @@
+
+<launch>
+	<node pkg="drone" name="pose_estimater_node" type="poseEstimationBasedOnLidar.py" output = "screen" />
+</launch>
