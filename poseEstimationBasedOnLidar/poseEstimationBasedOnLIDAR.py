@@ -57,8 +57,8 @@ class URGPlotter():
 
         self.changedWall = True
         self.config = lidarAndCanvasConfig()
-        self.mocker = URGMocker(READ_FROM_SERIAL)
-        self.pixhawk4 = pixhawk(READ_FROM_SERIAL)
+        self.mocker = URGMocker(READ_FROM_FILE)
+        self.pixhawk4 = pixhawk(READ_FROM_FILE)
         self.lidarVisualiser = lidarVisualiser(self.config)
         self.splitAndMerge = SplitAndMerge(self.config, self.lidarVisualiser)
         self.kf = KF()
@@ -159,17 +159,17 @@ class URGPlotter():
                         print("estimated state: {}".format(self.kf.update(lidarYaw)))
 
                 #caculate position
-                if self.wallMapping != []:
-                    if self.firstX == 0:
-                        self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
-                    if self.listOfYawSum != [] and walls != []:
-                        x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
-                        self.positionX += x
-                        self.positionY += y
-                        self.listOfX.append(self.positionX)
-                        self.listOfY.append(self.positionY)
-                        print("x: {}, y: {}".format(self.positionX, self.positionY))
-                    plotPosition(self.listOfX, self.listOfY)
+                # if self.wallMapping != []:
+                #     if self.firstX == 0:
+                #         self.firstX, self.firstY = calculatePositionDisplacement(walls[0].perpendicularRadian, walls[0].perpendicularDistance, 0)
+                #     if self.listOfYawSum != [] and walls != []:
+                #         x, y = determinePosition(walls, self.previousWalls, self.wallMapping, self.listOfYawSum[-1]/180*pi)
+                #         self.positionX += x
+                #         self.positionY += y
+                #         self.listOfX.append(self.positionX)
+                #         self.listOfY.append(self.positionY)
+                #         print("x: {}, y: {}".format(self.positionX, self.positionY))
+                #     plotPosition(self.listOfX, self.listOfY)
                 self.previousWalls = walls
             else:
                 self.listOfYaw.append(self.listOfYaw[-1])

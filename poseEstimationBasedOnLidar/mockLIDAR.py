@@ -31,16 +31,13 @@ class URGMocker():
         self.readFrom = readFrom
         if readFrom == READ_FROM_FILE:
             ##read from log file
-            self.file = open('urg04-LX-log', 'rb') 
+            self.file = open('test', 'rb') 
             self.bytesFromLIDAR = self.file.read()
             self.scanIndex = 0         
         elif readFrom == READ_FROM_SERIAL:
             # Create a URG04LX object and connect to it
             self.lidar = URG04LX(URG_DEVICE)
             #thread.start_new_thread( grab_scan, (self,) ) 
-        else:
-            self.lidar = URG04LX(URG_DEVICE)
-            self.readScanFromLidarAndWriteToFile()
             
     def _quit(self):
         del self.lidar
@@ -66,22 +63,6 @@ class URGMocker():
 
     def getCount(self):
         return self.scanCount
-
-    def readScanFromLidarAndWriteToFile(self):
-        #write to log file
-        self.file = open('urg04-LX-log1', 'wb') 
-        while True:
-            scandata = self.lidar.getScan()
-            if scandata:
-                self.scandata = scandata
-                for distance in scandata:
-                    distanceByte = distance.to_bytes(2, byteorder='big')
-                    self.file.write(distanceByte)
-                    self.file.write(LOG_END_OF_DISTANCE.to_bytes(2, byteorder='big'))
-                self.file.write(LOG_END_OF_SCAN.to_bytes(2, byteorder='big'))
-                sleep(.01) # pause a tiny amount to allow following check to work
-                if not self.running:
-                    break
 
     def exitLidar(self):
         if self.readFrom == READ_FROM_SERIAL:

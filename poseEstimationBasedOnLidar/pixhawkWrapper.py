@@ -81,6 +81,7 @@ class pixhawk():
                 self.previousYaw = yaw
             return None
         else:
+            self.previousYaw = 0
             self.imuYawRates = [0.0000001,0.0000001,0.0000001,0.0000001,0.0000001]
             self.imuYaws = [0.0000001,0.0000001,0.0000001,0.0000001,0.0000001]
             return 0.0000005
