@@ -10,6 +10,7 @@
 * Kalman filter that is able to 1) estimate the IMU bias and 2) to smoothen the LIDAR estimate 
 
 ![](var/output.gif)
+(gif: the left image is the previous (t-1) LIDAR reading and the right image the current (t) reading. The yellow lines are basically the LIDAR rays, so the the length of the yellow lines are the distance readings. Notice the red line being tracked between every LIDAR reading in real-time; meaning that we are able to estimate our rotation/yaw based on the changing orientation towards this (red) wall) 
 
 ## Setup
 This algorithm can either be tested with a real LIDAR and Pixhawk 4 or simply be tested with pre-recorded data avaible in this repo.
